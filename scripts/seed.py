@@ -1,4 +1,8 @@
 import sys
+import os
+
+# Tambahkan root proyek ke sys.path agar bisa mengimpor 'apps'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 #   Nama Stasiun      Lokasi
 #   us_embassy_1/2    US Embassy, Jl. Medan Merdeka Selatan 3-5 — Jakarta Pusat
