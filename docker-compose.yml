@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${NAMEDB}
+      POSTGRES_USER: ${USERDB}
+      POSTGRES_PASSWORD: ${PASSDB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USERDB} -d ${NAMEDB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DBHOST: db
+      DBPORT: "5432"
+    ports:
+      - "8000:8000"
+    volumes:
+      - media_data:/app/media
+      - satellite_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             gunicorn config.wsgi:application
+               --bind 0.0.0.0:8000
+               --workers 3
+               --timeout 120"
+
+volumes:
+  postgres_data:
+  media_data:
+  satellite_data:
