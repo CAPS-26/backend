@@ -1,8 +1,4 @@
-"""
-Vertical Slice: Weather Ingestion
-Scheduled job that pulls daily weather data from Visual Crossing API
-and stores it in the WeatherData table.
-"""
+"""Ambil data cuaca harian dari Visual Crossing API dan simpan ke tabel WeatherData."""
 import requests
 import logging
 import os
@@ -17,9 +13,7 @@ BASE_URL = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/se
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Geometry helpers — GeoAlchemy2 returns WKBElement; use shapely to parse
-# ---------------------------------------------------------------------------
+# Helper geometri — GeoAlchemy2 mengembalikan WKBElement, di-parse dengan shapely
 
 def _loc_lat(location):
     from geoalchemy2.shape import to_shape
@@ -59,7 +53,7 @@ def _make_weather(station_id, date_obj, day_data):
 
 
 def fetch_weather_data():
-    """Fetch today's weather for all stations."""
+    """Ambil data cuaca hari ini untuk semua stasiun."""
     with get_db_session() as db:
         stations = db.query(WeatherStation).all()
 
@@ -99,7 +93,7 @@ def fetch_weather_data():
 
 
 def fetch_weather_data_range(days_back: int = 3):
-    """Fetch weather for a range of days (backfill)."""
+    """Ambil data cuaca untuk rentang hari tertentu (backfill)."""
     results = []
     end_date = date.today()
     start_date = end_date - timedelta(days=days_back)

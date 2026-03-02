@@ -1,7 +1,4 @@
-"""
-AOD Ingestion
-Processes downloaded .nc satellite files into GeoJSON polygons stored in PostGIS.
-"""
+"""Proses file .nc satelit menjadi polygon GeoJSON dan simpan ke PostGIS."""
 import os
 import math
 import gc
@@ -21,19 +18,14 @@ from shapely.ops import unary_union
 from apps.database import get_db_session
 from apps.aod.models import Satellite, AerosolOpticalDepth, AerosolOpticalDepthPolygon
 
-# Project root (4 levels up from this file: ingestion -> features -> aod -> apps -> backend)
+# Root project (4 level ke atas dari file ini)
 _BASE_DIR = Path(__file__).resolve().parents[4]
 
 
-# ---------------------------------------------------------------------------
-# Coordinate / AOD conversion helpers
-# ---------------------------------------------------------------------------
+# Helper konversi koordinat dan AOD
 
 def convert_to_geoTiFF_input_data(nc_file_path, geotiff_file_path, geojson_filepath):
-    """Parse a .nc file and return AOD grid data.
-
-    Returns different structures depending on whether the source is VIIRS or Himawari.
-    """
+    """Baca file .nc dan kembalikan data grid AOD. Struktur berbeda untuk VIIRS dan Himawari."""
     print(nc_file_path)
     ds = xr.open_dataset(nc_file_path, decode_timedelta=False)
     folder_name = os.path.basename(os.path.dirname(nc_file_path))
@@ -105,9 +97,7 @@ def convert_to_geoTiFF_input_data(nc_file_path, geotiff_file_path, geojson_filep
         raise ValueError(f"Folder '{folder_name}' tidak dikenali sebagai 'VIIRS' atau 'Himawari'.")
 
 
-# ---------------------------------------------------------------------------
-# Himawari processing pipeline
-# ---------------------------------------------------------------------------
+# Pipeline Himawari
 
 def process_himawari_data():
     base_nc_folder_path = os.path.join(_BASE_DIR, 'data', 'Himawari')
@@ -211,9 +201,7 @@ def process_himawari_data():
     )
 
 
-# ---------------------------------------------------------------------------
-# VIIRS processing pipeline
-# ---------------------------------------------------------------------------
+# Pipeline VIIRS
 
 def process_viirs_files():
     today = date.today()

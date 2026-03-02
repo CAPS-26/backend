@@ -1,12 +1,9 @@
-"""
-PM2.5 Predictor
-Loads a trained Random Forest / sklearn model and predicts PM2.5 from feature vectors.
-"""
+"""Muat model Random Forest dan prediksi PM2.5 dari vektor fitur."""
 import joblib
 import pandas as pd
 import os
 
-# The trained model lives alongside this file
+# Lokasi model yang telah dilatih
 _MODEL_PATH = os.path.join(os.path.dirname(__file__), 'ml_models', 'best_model.pkl')
 
 FEATURE_COLUMNS = [
@@ -20,8 +17,7 @@ FEATURE_COLUMNS = [
 
 
 def predict_model(filename: str) -> pd.DataFrame:
-    """Read a CSV file, run the PM2.5 estimation model, and return a DataFrame
-    with columns: aod_latitude, aod_longitude, PM2.5."""
+    """Baca CSV, jalankan model estimasi PM2.5, dan kembalikan DataFrame."""
     model = joblib.load(_MODEL_PATH)
     df = pd.read_csv(filename)
     X_pred = df[FEATURE_COLUMNS]

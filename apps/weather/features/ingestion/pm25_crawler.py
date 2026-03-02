@@ -1,7 +1,4 @@
-"""
-Vertical Slice: Weather Ingestion
-Crawls ISPU PM2.5 readings for Jakarta stations from the DKI Jakarta government portal.
-"""
+"""Crawl nilai ISPU PM2.5 stasiun Jakarta dari portal pemerintah DKI."""
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -22,7 +19,7 @@ STATION_URLS = [
 
 
 def get_ispu_pm25_now():
-    """Scrape current PM2.5 ISPU values and persist them to the database."""
+    """Scrape nilai ISPU PM2.5 terkini dan simpan ke database."""
     headers = {"User-Agent": "Mozilla/5.0"}
 
     with get_db_session() as db:
@@ -55,6 +52,16 @@ def get_ispu_pm25_now():
                         continue
 
                     tanggal = datetime.now().date()
+
+                    existing = (
+                        db.query(PM25DataActual)
+                        .filter_by(station_id=stasiun.id, date=tanggal)
+                        .first()
+                    )
+                    if existing:
+                        print(f"[Skipped] {tempat['nama_tempat']} | {tanggal} already exists.")
+                        continue
+
                     record = PM25DataActual(
                         station_id=stasiun.id,
                         date=tanggal,

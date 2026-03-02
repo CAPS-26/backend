@@ -1,4 +1,4 @@
-"""Enable PostGIS extensions and create all tables
+"""Aktifkan ekstensi PostGIS dan buat semua tabel
 
 Revision ID: 0001
 Revises:
@@ -19,11 +19,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ── PostGIS extensions ──────────────────────────────────────────────────
+    # Ekstensi PostGIS
     op.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
     op.execute("CREATE EXTENSION IF NOT EXISTS postgis_raster;")
 
-    # ── AOD app tables ──────────────────────────────────────────────────────
+    # Tabel untuk app AOD
     op.create_table(
         "aod_satellite",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -81,7 +81,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
-    # ── Weather app tables ──────────────────────────────────────────────────
+    # Tabel untuk app Weather
     op.create_table(
         "weather_station",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),

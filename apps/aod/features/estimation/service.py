@@ -1,8 +1,4 @@
-"""
-PM2.5 Estimation
-Orchestrates the full estimation pipeline:
-AOD grid data  +  nearest-station weather data  →  PM2.5 grid  →  PostGIS polygons
-"""
+"""Pipeline estimasi PM2.5: data grid AOD + data cuaca stasiun terdekat → grid PM2.5 → polygon PostGIS."""
 import os
 import csv
 import math
@@ -18,7 +14,7 @@ from apps.database import get_db_session
 
 BASE_DIR = Path(__file__).resolve().parents[5]
 
-# Temporary CSV output directory
+# Direktori output CSV sementara
 _TEMP_DIR = Path(__file__).parent
 
 
@@ -27,7 +23,7 @@ def _euclidean_distance(lat1, lon1, lat2, lon2):
 
 
 def estimatePm25():
-    """Run PM2.5 spatial estimation for all unprocessed AOD records."""
+    """Jalankan estimasi spasial PM2.5 untuk semua record AOD yang belum diproses."""
     os.makedirs(_TEMP_DIR, exist_ok=True)
 
     with get_db_session() as db:
@@ -151,7 +147,7 @@ def _run_estimation(db: Session):
             date=rasterdata.date,
         )
         db.add(pm25data)
-        db.flush()  # get pm25data.id before commit
+        db.flush()  # dapatkan pm25data.id sebelum commit
 
         for _, row in polygondata.iterrows():
             geom = row.geometry

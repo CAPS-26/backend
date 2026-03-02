@@ -1,7 +1,5 @@
-"""
-Vertical Slice: Weather Ingestion
-Imports historical PM2.5 data from Excel (.xls/.xlsx) files into the database.
-Expected filename format: <station_name>_<YYYYMMDD>.xlsx
+"""Import data PM2.5 historis dari file Excel (.xls/.xlsx) ke database.
+Format nama file: <nama_stasiun>_<YYYYMMDD>.xlsx
 """
 import os
 import pandas as pd
@@ -12,7 +10,7 @@ from apps.weather.models import WeatherStation, PM25DataActual
 
 
 def pm25ToDatabase(folder_path: str, kolom_nilai: str = 'ISPU PM2.5'):
-    """Read Excel files from folder_path and save daily-average PM2.5 to the DB."""
+    """Baca file Excel dari folder_path dan simpan rata-rata PM2.5 harian ke DB."""
     with get_db_session() as db:
         for file in os.listdir(folder_path):
             if not (file.endswith('.xls') or file.endswith('.xlsx')):

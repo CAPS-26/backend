@@ -17,12 +17,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 class Base(DeclarativeBase):
-    """Shared declarative base — imported by all model modules."""
+    """Base deklaratif — diimpor oleh semua modul model."""
     pass
 
 
 def get_db() -> Generator[Session, None, None]:
-    """FastAPI dependency that yields a database session."""
+    """Dependency FastAPI untuk menghasilkan sesi database."""
     db = SessionLocal()
     try:
         yield db
@@ -32,7 +32,7 @@ def get_db() -> Generator[Session, None, None]:
 
 @contextmanager
 def get_db_session() -> Generator[Session, None, None]:
-    """Context manager for use in background scheduler jobs."""
+    """Context manager untuk digunakan di background scheduler."""
     db = SessionLocal()
     try:
         yield db

@@ -1,0 +1,491 @@
+{
+  "info": {
+    "name": "CAPS-26 Backend API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for AOD and Weather REST API."
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response has status ok\", function () {",
+                  "  var data = pm.response.json();",
+                  "  pm.expect(data.status).to.eql(\"ok\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AOD",
+      "item": [
+        {
+          "name": "GET AOD Polygon (Yesterday)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aod/polygon/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "aod",
+                "polygon",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"GeoJSON FeatureCollection\", function () {",
+                  "    pm.expect(data.type).to.eql(\"FeatureCollection\");",
+                  "    pm.expect(Array.isArray(data.features)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST AOD Polygon By Date",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tanggal\": \"{{aod_date}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aod/polygon/by-date/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "aod",
+                "polygon",
+                "by-date",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"GeoJSON FeatureCollection\", function () {",
+                  "    pm.expect(data.type).to.eql(\"FeatureCollection\");",
+                  "    pm.expect(Array.isArray(data.features)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET PM2.5 Polygon (Yesterday)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aod/pm25/polygon/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "aod",
+                "pm25",
+                "polygon",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"GeoJSON FeatureCollection\", function () {",
+                  "    pm.expect(data.type).to.eql(\"FeatureCollection\");",
+                  "    pm.expect(Array.isArray(data.features)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST PM2.5 Polygon By Date",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tanggal\": \"{{aod_date}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aod/pm25/polygon/by-date/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "aod",
+                "pm25",
+                "polygon",
+                "by-date",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"GeoJSON FeatureCollection\", function () {",
+                  "    pm.expect(data.type).to.eql(\"FeatureCollection\");",
+                  "    pm.expect(Array.isArray(data.features)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Weather",
+      "item": [
+        {
+          "name": "GET Weather (Today)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/weather/weather/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "weather",
+                "weather",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"Response is array\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Weather By Date",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{weather_date}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/weather/weather/by-date/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "weather",
+                "weather",
+                "by-date",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"Response is array\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET PM2.5 Actual (Today)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/weather/pm25/actual/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "weather",
+                "pm25",
+                "actual",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"Response is array\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST PM2.5 Actual By Date",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{weather_date}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/weather/pm25/actual/by-date/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "weather",
+                "pm25",
+                "actual",
+                "by-date",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"Response is array\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET PM2.5 Prediction (Today)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/weather/pm25/prediction/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "weather",
+                "pm25",
+                "prediction",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"Response is array\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST PM2.5 Prediction By Date",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"{{weather_date}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/weather/pm25/prediction/by-date/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "weather",
+                "pm25",
+                "prediction",
+                "by-date",
+                ""
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "  pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  pm.test(\"Response is array\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

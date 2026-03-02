@@ -5,12 +5,11 @@ REST API backend untuk pemrosesan data satelit Aerosol Optical Depth (AOD) dan e
 ## Struktur Proyek
 
 ```bash
-backend-aod/
-├── config/                  # Pengaturan Django, urls, wsgi
+backend/
+├── config/                  # Pengaturan aplikasi (settings.py)
 ├── apps/
 │   ├── aod/                 # Domain satelit AOD
 │   │   ├── models.py
-│   │   ├── migrations/
 │   │   └── features/
 │   │       ├── ingestion/   # Fetch & proses file satelit .nc (Himawari, VIIRS)
 │   │       ├── estimation/  # Estimasi spasial PM2.5 (sklearn)
@@ -18,14 +17,14 @@ backend-aod/
 │   │       └── api/         # Endpoint REST
 │   └── weather/             # Domain cuaca & PM2.5 ground
 │       ├── models.py
-│       ├── migrations/
 │       └── features/
 │           ├── ingestion/   # Fetch API cuaca, crawling PM2.5
 │           └── api/         # Endpoint REST
+├── alembic/                 # Migrasi database (Alembic)
 ├── data/                    # File satelit unduhan (gitignored)
 ├── Dockerfile
 ├── docker-compose.yml
-└── manage.py
+└── main.py                  # Entry point FastAPI
 ```
 
 ---
@@ -52,7 +51,7 @@ docker compose up --build
 
 API akan tersedia di `http://localhost:8000`.
 
-Pada boot pertama, service `web` menjalankan `migrate` secara otomatis sebelum memulai gunicorn.
+Pada boot pertama, service `web` menjalankan migrasi database secara otomatis.
 
 Untuk menjalankan di mode detached:
 
@@ -101,7 +100,7 @@ brew install gdal geos proj postgresql postgis
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -e . # atau pip install -r requirements.txt jika ada
 ```
 
 ### 3. Database
@@ -130,12 +129,12 @@ Variabel yang diperlukan:
 
 | Variabel | Deskripsi |
 | --- | --- |
-| `SECRET_KEY` | Kunci rahasia Django |
+| `SECRET_KEY` | Kunci rahasia aplikasi |
 | `DEBUG` | `True` untuk dev lokal, `False` untuk produksi |
 | `NAMEDB` | Nama database |
 | `USERDB` | Pengguna database |
 | `PASSDB` | Password database |
-| `DBHOST` | Host database (default: `127.0.0.1`) |
+| `DBHOST` | Host database (default: `localhost`) |
 | `DBPORT` | Port database (default: `5432`) |
 | `API_KEY` | Kunci API cuaca Visual Crossing |
 | `USERHIMAWARI` | Nama pengguna FTP JAXA |
@@ -144,28 +143,33 @@ Variabel yang diperlukan:
 ### 5. Terapkan migrasi dan jalankan
 
 ```bash
-python manage.py migrate
-python manage.py runserver
+# Jalankan migrasi database
+alembic upgrade head
+
+# Jalankan server FastAPI (Development)
+fastapi dev main.py
 ```
 
-Dokumentasi API (Swagger) akan di `http://127.0.0.1:8000/swagger/`.
+Dokumentasi API (Swagger) akan ada di `http://127.0.0.1:8000/docs`.
 
 ---
 
-## Endpoint API
+## Endpoint API (v1)
+
+Base URL: `/api/v1`
 
 | Method | Path | Deskripsi |
 | --- | --- | --- |
-| GET | `/api/aod/polygon/` | Polygon AOD untuk kemarin |
-| POST | `/api/aod/polygon/by-date/` | Polygon AOD untuk tanggal tertentu |
-| GET | `/api/aod/pm25/polygon/` | Polygon estimasi PM2.5 untuk kemarin |
-| POST | `/api/aod/pm25/polygon/by-date/` | Polygon estimasi PM2.5 untuk tanggal tertentu |
-| GET | `/api/weather/weather/` | Data cuaca untuk hari ini |
-| POST | `/api/weather/weather/by-date/` | Data cuaca untuk tanggal tertentu |
-| GET | `/api/weather/pm25/actual/` | Pembacaan PM2.5 aktual untuk hari ini |
-| POST | `/api/weather/pm25/actual/by-date/` | Pembacaan PM2.5 aktual untuk tanggal tertentu |
-| GET | `/api/weather/pm25/prediction/` | Prediksi PM2.5 untuk hari ini |
-| POST | `/api/weather/pm25/prediction/by-date/` | Prediksi PM2.5 untuk tanggal tertentu |
+| GET | `/aod/polygon/` | Polygon AOD untuk kemarin |
+| POST | `/aod/polygon/by-date/` | Polygon AOD untuk tanggal tertentu |
+| GET | `/aod/pm25/polygon/` | Polygon estimasi PM2.5 untuk kemarin |
+| POST | `/aod/pm25/polygon/by-date/` | Polygon estimasi PM2.5 untuk tanggal tertentu |
+| GET | `/weather/weather/` | Data cuaca untuk hari ini |
+| POST | `/weather/weather/by-date/` | Data cuaca untuk tanggal tertentu |
+| GET | `/weather/pm25/actual/` | Pembacaan PM2.5 aktual untuk hari ini |
+| POST | `/weather/pm25/actual/by-date/` | Pembacaan PM2.5 aktual untuk tanggal tertentu |
+| GET | `/weather/pm25/prediction/` | Prediksi PM2.5 untuk hari ini |
+| POST | `/weather/pm25/prediction/by-date/` | Prediksi PM2.5 untuk tanggal tertentu |
 
 Request body untuk endpoint AOD `by-date`: `{ "tanggal": "YYYY-MM-DD" }`
 

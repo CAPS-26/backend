@@ -1,7 +1,4 @@
-"""
-Weather & PM2.5 Station API
-Replaces: apps/weather/features/api/views.py + urls.py
-"""
+"""API data cuaca dan PM2.5 per stasiun."""
 from datetime import date as date_type
 from typing import Any, Dict, List
 
@@ -17,7 +14,7 @@ router = APIRouter()
 
 
 def _coords(station) -> tuple:
-    """Return (lat, lon) from a WeatherStation GeoAlchemy2 Point, or (None, None)."""
+    """Kembalikan (lat, lon) dari GeoAlchemy2 Point stasiun, atau (None, None)."""
     if station and station.location:
         pt = to_shape(station.location)
         return pt.y, pt.x
@@ -51,7 +48,7 @@ def _pm25_actual_row(r: PM25DataActual) -> Dict[str, Any]:
     }
 
 
-# ── Weather ────────────────────────────────────────────────────────────────────
+# Weather
 
 @router.get(
     "/weather/",
@@ -94,7 +91,7 @@ def get_weather_by_date(body: DateInput, db: Session = Depends(get_db)) -> List[
     return [_weather_row(r) for r in rows]
 
 
-# ── PM2.5 Actual ───────────────────────────────────────────────────────────────
+# PM2.5 Aktual
 
 @router.get(
     "/pm25/actual/",
@@ -135,7 +132,7 @@ def get_pm25_actual_by_date(body: DateInput, db: Session = Depends(get_db)) -> L
     return [_pm25_actual_row(r) for r in rows]
 
 
-# ── PM2.5 Prediction ───────────────────────────────────────────────────────────
+# PM2.5 Prediksi
 
 @router.get(
     "/pm25/prediction/",

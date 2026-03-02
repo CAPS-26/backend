@@ -1,7 +1,4 @@
-"""
-Raster Converter
-Converts PM2.5 CSV predictions to GeoTIFF raster or clipped GeoDataFrame polygons.
-"""
+"""Konversi prediksi PM2.5 dari CSV ke raster GeoTIFF atau polygon GeoDataFrame."""
 import numpy as np
 import xarray as xr
 import rasterio
@@ -12,7 +9,7 @@ import pandas as pd
 
 
 def csv_to_geotiff(dataframe: pd.DataFrame, output_path: str) -> str:
-    """Interpolate PM2.5 point predictions onto a regular grid and save as GeoTIFF."""
+    """Interpolasi prediksi PM2.5 ke grid reguler dan simpan sebagai GeoTIFF."""
     latitudes = dataframe['aod_latitude'].values
     longitudes = dataframe['aod_longitude'].values
     pm25_values = dataframe['PM2.5'].values
@@ -55,7 +52,7 @@ def csv_to_geotiff(dataframe: pd.DataFrame, output_path: str) -> str:
 
 
 def csvToPolygon(dataframe: pd.DataFrame, jakarta_geojson: str) -> gpd.GeoDataFrame:
-    """Convert PM2.5 point predictions to grid-cell polygons clipped to Jakarta boundary."""
+    """Konversi prediksi PM2.5 ke polygon grid yang dipotong batas Jakarta."""
     lat_res = 0.05
     lon_res = 0.05
     records = []

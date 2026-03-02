@@ -1,7 +1,4 @@
-"""
-AOD & PM2.5 Polygon API
-Replaces: apps/aod/features/api/views.py + urls.py
-"""
+"""API polygon AOD dan PM2.5."""
 from datetime import date, timedelta
 from typing import Any, Dict
 
@@ -18,7 +15,7 @@ router = APIRouter()
 
 
 def _to_geojson_fc(rows: list, value_field: str) -> Dict[str, Any]:
-    """Convert a list of polygon ORM rows to a GeoJSON FeatureCollection."""
+    """Konversi list ORM polygon menjadi GeoJSON FeatureCollection."""
     features = []
     for row in rows:
         shape = to_shape(row.geom)
@@ -32,7 +29,7 @@ def _to_geojson_fc(rows: list, value_field: str) -> Dict[str, Any]:
     return {"type": "FeatureCollection", "features": features}
 
 
-# ── AOD Polygon ────────────────────────────────────────────────────────────────
+# AOD Polygon
 
 @router.get(
     "/polygon/",
@@ -73,7 +70,7 @@ def get_aod_polygon_by_date(body: DateInput, db: Session = Depends(get_db)):
     return _to_geojson_fc(rows, "aod_value")
 
 
-# ── PM2.5 Polygon ──────────────────────────────────────────────────────────────
+# PM2.5 Polygon
 
 @router.get(
     "/pm25/polygon/",

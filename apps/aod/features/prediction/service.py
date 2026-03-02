@@ -1,8 +1,4 @@
-"""
-Vertical Slice: PM2.5 Prediction
-LSTM-based next-day PM2.5 station forecast.
-Loads per-station .keras models stored in ml_models/.
-"""
+"""Prediksi PM2.5 hari berikutnya per stasiun menggunakan model LSTM (.keras)."""
 import os
 import numpy as np
 import pandas as pd
@@ -14,7 +10,7 @@ from apps.aod.models import AerosolOpticalDepth
 from apps.weather.models import WeatherData, WeatherStation, PM25DataActual, PM25DataPrediction
 from apps.database import get_db_session
 
-# Directory where .keras model files live
+# Direktori model .keras per stasiun
 _MODELS_DIR = os.path.join(os.path.dirname(__file__), "ml_models")
 
 FEATURE_COLUMNS = ["temp", "dew", "humidity", "precip", "windspeed", "AOD", "ISPU PM2.5"]
@@ -29,7 +25,7 @@ def _find_nearest_point(lat_target, lon_target, latitudes, longitudes):
 
 
 def predict_pm25_for_all_stations():
-    """Predict next-day PM2.5 for every weather station using the per-station LSTM model."""
+    """Jalankan prediksi PM2.5 hari berikutnya untuk semua stasiun."""
     with get_db_session() as db:
         _run_prediction(db)
 
@@ -67,7 +63,7 @@ def _run_prediction(db: Session):
             .all()
         )
 
-        # Index by date for fast lookup
+        # Index berdasarkan tanggal untuk pencarian cepat
         weather_by_date = {w.date: w for w in weather_all}
         pm25_by_date = {p.date: p for p in pm25_all}
 

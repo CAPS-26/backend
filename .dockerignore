@@ -9,19 +9,30 @@ __pycache__
 *.pyd
 *.egg-info
 
+# DB init scripts — mounted as volume into db container, not needed in web image
+
+deploy/
+
 # Downloaded satellite files (mounted as Docker volume)
+
 data/
 
 # Django collected static / media
+
 media/
 staticfiles/
 
+# FastAPI static files
+static/
+
 # IDE / OS
+
 .DS_Store
 .vscode/
 .idea/
 
 # Test / dev artifacts
+
 testing/
 images/
 *.log

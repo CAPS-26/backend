@@ -1,7 +1,4 @@
-"""
-VIIRS Ingestion
-Retrieves AOD data from VIIRS satellite via NASA EarthAccess.
-"""
+"""Ambil data AOD dari satelit VIIRS via NASA EarthAccess."""
 import earthaccess
 import os
 from datetime import datetime, timedelta

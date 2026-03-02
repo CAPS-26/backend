@@ -1,7 +1,4 @@
-"""
-Himawari Ingestion
-Fetches daily AOD data from Himawari satellite via JAXA FTP.
-"""
+"""Ambil data AOD harian dari satelit Himawari via JAXA FTP."""
 from ftplib import FTP
 from datetime import datetime, timedelta
 import os
@@ -19,7 +16,7 @@ def getDataHimawari():
     dirData = f"pub/himawari/L3/ARP/031/{year}{month:02d}"
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    # Store downloaded files in the project-level data/Himawari directory
+    # Simpan file unduhan di direktori data/Himawari
     download_path = os.path.join(base_dir, '..', '..', '..', '..', 'data', 'Himawari')
     download_path = os.path.normpath(download_path)
     os.makedirs(download_path, exist_ok=True)

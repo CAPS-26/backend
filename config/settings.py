@@ -11,7 +11,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # App
+    # Aplikasi
     secret_key: str = "change-me-in-production"
     debug: bool = False
 
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     dbhost: str = "localhost"
     dbport: str = "5432"
 
-    # External API keys
+    # API key eksternal
     api_key: str = ""
     userhimawari: str = ""
     passhimawari: str = ""
