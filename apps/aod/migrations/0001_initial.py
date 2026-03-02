@@ -13,6 +13,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunSQL(
+            sql="CREATE EXTENSION IF NOT EXISTS postgis_raster;",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         migrations.CreateModel(
             name='Sattellite',
             fields=[

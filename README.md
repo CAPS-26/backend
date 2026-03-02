@@ -35,7 +35,7 @@ backend-aod/
 ### Prerequisites
 
 - Docker >= 24
-- Docker Compose v2 (bundled with Docker Desktop or `docker compose` CLI plugin)
+- Docker Compose (bundled with Docker Desktop or `docker compose` CLI plugin)
 
 ### Setup
 
@@ -170,4 +170,3 @@ API docs (Swagger) will be at `http://127.0.0.1:8000/swagger/`.
 Request body for `by-date` AOD endpoints: `{ "tanggal": "YYYY-MM-DD" }`
 
 Request body for `by-date` weather/PM2.5 endpoints: `{ "date": "YYYY-MM-DD" }`
-

@@ -1,6 +1,9 @@
 # Stage 1: Build
 FROM python:3.11-slim-bookworm AS builder
 
+# Install uv by copying the binary from the official distroless image.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Install system-level build dependencies.
 # gcc, g++, python3-dev, libgdal-dev, libpq-dev are only needed to compile
 # Python packages and will NOT be present in the final image.
@@ -16,12 +19,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Isolated virtualenv so we can copy it cleanly to the runtime stage.
-RUN python -m venv /opt/venv
+RUN uv venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Silence hardlink warnings when using a cache mount across filesystems.
+ENV UV_LINK_MODE=copy
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install -r requirements.txt
 
 
 # Stage 2: Runtime
