@@ -7,6 +7,8 @@ import math
 import gc
 from datetime import date, datetime
 
+from pathlib import Path
+
 import numpy as np
 import xarray as xr
 import rasterio
@@ -16,11 +18,11 @@ import geopandas as gpd
 from shapely.geometry import box, MultiPolygon
 from shapely.ops import unary_union
 
-from django.conf import settings
-from django.contrib.gis.gdal import GDALRaster
-from django.contrib.gis.geos import GEOSGeometry
-
+from apps.database import get_db_session
 from apps.aod.models import Satellite, AerosolOpticalDepth, AerosolOpticalDepthPolygon
+
+# Project root (4 levels up from this file: ingestion -> features -> aod -> apps -> backend)
+_BASE_DIR = Path(__file__).resolve().parents[4]
 
 
 # ---------------------------------------------------------------------------
@@ -108,87 +110,96 @@ def convert_to_geoTiFF_input_data(nc_file_path, geotiff_file_path, geojson_filep
 # ---------------------------------------------------------------------------
 
 def process_himawari_data():
-    base_nc_folder_path = os.path.join(settings.BASE_DIR, 'data', 'Himawari')
+    base_nc_folder_path = os.path.join(_BASE_DIR, 'data', 'Himawari')
 
     if not os.path.exists(base_nc_folder_path):
         return {"error": f"Folder {base_nc_folder_path} tidak ditemukan."}, 404
 
-    jakarta_geojson = os.path.join(settings.BASE_DIR, 'id-jk.geojson')
-    geotiff_folder = os.path.join(settings.MEDIA_ROOT, 'geotiff_files')
+    jakarta_geojson = os.path.join(_BASE_DIR, 'id-jk.geojson')
+    geotiff_folder = os.path.join(_BASE_DIR, 'data', 'geotiff_files')
     os.makedirs(geotiff_folder, exist_ok=True)
 
     processed_files = []
     errors = []
 
     try:
-        satellite, _ = Satellite.objects.get_or_create(satellite_name='Himawari')
+        with get_db_session() as db:
+            satellite = db.query(Satellite).filter_by(satellite_name='Himawari').first()
+            if satellite is None:
+                satellite = Satellite(satellite_name='Himawari')
+                db.add(satellite)
+                db.commit()
+                db.refresh(satellite)
 
-        for nc_file_name in os.listdir(base_nc_folder_path):
-            if not nc_file_name.endswith('.nc'):
-                continue
-            nc_file_path = os.path.join(base_nc_folder_path, nc_file_name)
-            filename_parts = nc_file_name.split('_')
-            date_str = filename_parts[1]
-            file_date = datetime.strptime(date_str, "%Y%m%d").date()
-            geotiff_file_path = os.path.join(
-                geotiff_folder,
-                f"Himawari_{nc_file_name.replace('.nc', '.tif')}"
-            )
-
-            try:
-                latitude, longitude, aod_values, clipped_gdf = convert_to_geoTiFF_input_data(
-                    nc_file_path, geotiff_file_path, jakarta_geojson
-                )
-                dataraster = []
-                for i in range(latitude.shape[0]):
-                    for j in range(longitude.shape[0]):
-                        lat_value = float(latitude[i])
-                        lon_value = float(longitude[j])
-                        aod_value = float(aod_values[i, j])
-                        if math.isnan(aod_value):
-                            aod_value = 0.0
-                        dataraster.append({
-                            "latitude": lat_value,
-                            "longitude": lon_value,
-                            "aod_values": aod_value
-                        })
-
-                print(dataraster)
-                raster_data = AerosolOpticalDepth.objects.create(
-                    satellite=satellite,
-                    data=dataraster,
-                    date=file_date,
+            for nc_file_name in os.listdir(base_nc_folder_path):
+                if not nc_file_name.endswith('.nc'):
+                    continue
+                nc_file_path = os.path.join(base_nc_folder_path, nc_file_name)
+                filename_parts = nc_file_name.split('_')
+                date_str = filename_parts[1]
+                file_date = datetime.strptime(date_str, "%Y%m%d").date()
+                geotiff_file_path = os.path.join(
+                    geotiff_folder,
+                    f"Himawari_{nc_file_name.replace('.nc', '.tif')}"
                 )
 
-                for _, row in clipped_gdf.iterrows():
-                    geom = row.geometry
-                    if geom.geom_type == 'MultiPolygon':
-                        for poly in geom.geoms:
-                            polygon = GEOSGeometry(poly.wkt, srid=4326)
-                            AerosolOpticalDepthPolygon.objects.create(
-                                aodid=raster_data,
-                                geom=polygon,
+                try:
+                    latitude, longitude, aod_values, clipped_gdf = convert_to_geoTiFF_input_data(
+                        nc_file_path, geotiff_file_path, jakarta_geojson
+                    )
+                    dataraster = []
+                    for i in range(latitude.shape[0]):
+                        for j in range(longitude.shape[0]):
+                            lat_value = float(latitude[i])
+                            lon_value = float(longitude[j])
+                            aod_value = float(aod_values[i, j])
+                            if math.isnan(aod_value):
+                                aod_value = 0.0
+                            dataraster.append({
+                                "latitude": lat_value,
+                                "longitude": lon_value,
+                                "aod_values": aod_value
+                            })
+
+                    print(dataraster)
+                    raster_data = AerosolOpticalDepth(
+                        satellite_id=satellite.id,
+                        data=dataraster,
+                        date=file_date,
+                    )
+                    db.add(raster_data)
+                    db.commit()
+                    db.refresh(raster_data)
+
+                    for _, row in clipped_gdf.iterrows():
+                        geom = row.geometry
+                        if geom.geom_type == 'MultiPolygon':
+                            for poly in geom.geoms:
+                                db.add(AerosolOpticalDepthPolygon(
+                                    aod_id=raster_data.id,
+                                    geom=f"SRID=4326;{poly.wkt}",
+                                    aod_value=row['aod'],
+                                    date=raster_data.date,
+                                ))
+                        else:
+                            db.add(AerosolOpticalDepthPolygon(
+                                aod_id=raster_data.id,
+                                geom=f"SRID=4326;{geom.wkt}",
                                 aod_value=row['aod'],
-                                date=raster_data.date
-                            )
-                    else:
-                        polygon = GEOSGeometry(geom.wkt, srid=4326)
-                        AerosolOpticalDepthPolygon.objects.create(
-                            aodid=raster_data,
-                            geom=polygon,
-                            aod_value=row['aod'],
-                            date=raster_data.date
-                        )
+                                date=raster_data.date,
+                            ))
+                    db.commit()
 
-                if os.path.exists(geotiff_file_path):
-                    os.remove(geotiff_file_path)
-                if os.path.exists(nc_file_path):
-                    os.remove(nc_file_path)
+                    if os.path.exists(geotiff_file_path):
+                        os.remove(geotiff_file_path)
+                    if os.path.exists(nc_file_path):
+                        os.remove(nc_file_path)
 
-                processed_files.append(nc_file_name)
+                    processed_files.append(nc_file_name)
 
-            except Exception as e:
-                errors.append({nc_file_name: str(e)})
+                except Exception as e:
+                    db.rollback()
+                    errors.append({nc_file_name: str(e)})
 
     except Exception as e:
         errors.append({"Himawari": str(e)})
@@ -206,9 +217,9 @@ def process_himawari_data():
 
 def process_viirs_files():
     today = date.today()
-    base_nc_folder_path = os.path.join(settings.BASE_DIR, 'data', 'VIIRS')
-    jakarta_geojson = os.path.join(settings.BASE_DIR, 'id-jk.geojson')
-    geotiff_folder = os.path.join(settings.MEDIA_ROOT, 'geotiff_files')
+    base_nc_folder_path = os.path.join(_BASE_DIR, 'data', 'VIIRS')
+    jakarta_geojson = os.path.join(_BASE_DIR, 'id-jk.geojson')
+    geotiff_folder = os.path.join(_BASE_DIR, 'data', 'geotiff_files')
 
     if not os.path.exists(base_nc_folder_path):
         return {
@@ -222,57 +233,65 @@ def process_viirs_files():
     errors = []
 
     try:
-        satellite, _ = Satellite.objects.get_or_create(satellite_name='VIIRS')
+        with get_db_session() as db:
+            satellite = db.query(Satellite).filter_by(satellite_name='VIIRS').first()
+            if satellite is None:
+                satellite = Satellite(satellite_name='VIIRS')
+                db.add(satellite)
+                db.commit()
+                db.refresh(satellite)
 
-        for nc_file_name in os.listdir(base_nc_folder_path):
-            if not nc_file_name.endswith('.nc'):
-                continue
-            nc_file_path = os.path.join(base_nc_folder_path, nc_file_name)
-            geotiff_file_path = os.path.join(
-                geotiff_folder,
-                f"VIIRS_{nc_file_name.replace('.nc', '.tif')}"
-            )
-
-            try:
-                latitude, longitude, aod_values = convert_to_geoTiFF_input_data(
-                    nc_file_path, geotiff_file_path, jakarta_geojson
+            for nc_file_name in os.listdir(base_nc_folder_path):
+                if not nc_file_name.endswith('.nc'):
+                    continue
+                nc_file_path = os.path.join(base_nc_folder_path, nc_file_name)
+                geotiff_file_path = os.path.join(
+                    geotiff_folder,
+                    f"VIIRS_{nc_file_name.replace('.nc', '.tif')}"
                 )
-                print(f"Longitude shape (VIIRS): {longitude.shape}")
-                print(f"Latitude shape (VIIRS): {latitude.shape}")
 
-                dataraster = []
-                for i in range(latitude.shape[0]):
-                    for j in range(latitude.shape[1]):
-                        lat_value = float(latitude[i, j])
-                        lon_value = float(longitude[i, j])
-                        aod_value = float(aod_values[i, j])
-                        if math.isnan(aod_value):
-                            aod_value = 0.0
-                        dataraster.append({
-                            "latitude": lat_value,
-                            "longitude": lon_value,
-                            "aod_values": aod_value
-                        })
+                try:
+                    latitude, longitude, aod_values = convert_to_geoTiFF_input_data(
+                        nc_file_path, geotiff_file_path, jakarta_geojson
+                    )
+                    print(f"Longitude shape (VIIRS): {longitude.shape}")
+                    print(f"Latitude shape (VIIRS): {latitude.shape}")
 
-                raster_data = AerosolOpticalDepth(
-                    satellite=satellite,
-                    data=dataraster,
-                    date=today
-                )
-                raster_data.save()
-                gc.collect()
+                    dataraster = []
+                    for i in range(latitude.shape[0]):
+                        for j in range(latitude.shape[1]):
+                            lat_value = float(latitude[i, j])
+                            lon_value = float(longitude[i, j])
+                            aod_value = float(aod_values[i, j])
+                            if math.isnan(aod_value):
+                                aod_value = 0.0
+                            dataraster.append({
+                                "latitude": lat_value,
+                                "longitude": lon_value,
+                                "aod_values": aod_value
+                            })
 
-                if os.path.exists(geotiff_file_path):
-                    os.remove(geotiff_file_path)
-                    print(f"File {geotiff_file_path} berhasil dihapus.")
-                if os.path.exists(nc_file_path):
-                    os.remove(nc_file_path)
-                    print(f"File {nc_file_path} berhasil dihapus.")
+                    raster_data = AerosolOpticalDepth(
+                        satellite_id=satellite.id,
+                        data=dataraster,
+                        date=today,
+                    )
+                    db.add(raster_data)
+                    db.commit()
+                    gc.collect()
 
-                processed_files.append(nc_file_name)
+                    if os.path.exists(geotiff_file_path):
+                        os.remove(geotiff_file_path)
+                        print(f"File {geotiff_file_path} berhasil dihapus.")
+                    if os.path.exists(nc_file_path):
+                        os.remove(nc_file_path)
+                        print(f"File {nc_file_path} berhasil dihapus.")
 
-            except Exception as e:
-                errors.append({nc_file_name: str(e)})
+                    processed_files.append(nc_file_name)
+
+                except Exception as e:
+                    db.rollback()
+                    errors.append({nc_file_name: str(e)})
 
     except Exception as e:
         errors.append({"VIIRS": str(e)})

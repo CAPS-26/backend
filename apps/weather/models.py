@@ -1,44 +1,70 @@
-from django.contrib.gis.db import models
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
+from sqlalchemy.orm import relationship
+from geoalchemy2 import Geometry
 
-class WeatherStation(models.Model):
-    name = models.CharField(max_length=255)
-    location = models.PointField() 
-    def __str__(self):
-        return self.name
+from apps.database import Base
 
-class WeatherData(models.Model):
-    station = models.ForeignKey(WeatherStation, on_delete=models.CASCADE, related_name='weather_data')
-    date = models.DateField()
-    temperature = models.FloatField(null=True, blank=True)  
-    temp_max = models.FloatField(null=True, blank=True)  
-    temp_min = models.FloatField(null=True, blank=True)  
-    feels_like = models.FloatField(null=True, blank=True)  
-    feels_like_max = models.FloatField(null=True, blank=True)  
-    feels_like_min = models.FloatField(null=True, blank=True)  
-    dew_point = models.FloatField(null=True, blank=True)  
-    humidity = models.FloatField(null=True, blank=True)  
-    wind_speed = models.FloatField(null=True, blank=True) 
-    wind_gust = models.FloatField(null=True, blank=True)
-    wind_dir = models.FloatField(null=True, blank=True) 
-    precipitation = models.FloatField(null=True, blank=True)  
-    precip_cover = models.FloatField(null=True, blank=True)  
-    barometric_pressure = models.FloatField(null=True, blank=True) 
-    sea_level_pressure = models.FloatField(null=True, blank=True)  
-    cloud_cover = models.FloatField(null=True, blank=True)
-    visibility = models.FloatField(null=True, blank=True)
-    uv_index = models.FloatField(null=True, blank=True)
-    solar_radiation = models.FloatField(null=True, blank=True)
-    solar_energy = models.FloatField(null=True, blank=True)
-    def __str__(self):
-        return f"{self.station.name} - {self.date}"
-    
-class pm25DataActual(models.Model):
-    station = models.ForeignKey(WeatherStation, on_delete=models.CASCADE, related_name='pm25data_actual')
-    date = models.DateField(null=True, blank=True)
-    pm25_value = models.FloatField(null=True, blank=True)
 
-class pm25DataPrediction(models.Model):
-    station = models.ForeignKey(WeatherStation, on_delete=models.CASCADE, related_name='pm25data_prediction')
-    date = models.DateField()
-    pm25_value = models.FloatField(null=True, blank=True)
+class WeatherStation(Base):
+    __tablename__ = "weather_station"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    location = Column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
+
+    weather_data = relationship("WeatherData", back_populates="station")
+    pm25_actual = relationship("PM25DataActual", back_populates="station")
+    pm25_prediction = relationship("PM25DataPrediction", back_populates="station")
+
+
+class WeatherData(Base):
+    __tablename__ = "weather_data"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    station_id = Column(Integer, ForeignKey("weather_station.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    temperature = Column(Float, nullable=True)
+    temp_max = Column(Float, nullable=True)
+    temp_min = Column(Float, nullable=True)
+    feels_like = Column(Float, nullable=True)
+    feels_like_max = Column(Float, nullable=True)
+    feels_like_min = Column(Float, nullable=True)
+    dew_point = Column(Float, nullable=True)
+    humidity = Column(Float, nullable=True)
+    wind_speed = Column(Float, nullable=True)
+    wind_gust = Column(Float, nullable=True)
+    wind_dir = Column(Float, nullable=True)
+    precipitation = Column(Float, nullable=True)
+    precip_cover = Column(Float, nullable=True)
+    barometric_pressure = Column(Float, nullable=True)
+    sea_level_pressure = Column(Float, nullable=True)
+    cloud_cover = Column(Float, nullable=True)
+    visibility = Column(Float, nullable=True)
+    uv_index = Column(Float, nullable=True)
+    solar_radiation = Column(Float, nullable=True)
+    solar_energy = Column(Float, nullable=True)
+
+    station = relationship("WeatherStation", back_populates="weather_data")
+
+
+class PM25DataActual(Base):
+    __tablename__ = "weather_pm25actual"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    station_id = Column(Integer, ForeignKey("weather_station.id"), nullable=False)
+    date = Column(Date, nullable=True)
+    pm25_value = Column(Float, nullable=True)
+
+    station = relationship("WeatherStation", back_populates="pm25_actual")
+
+
+class PM25DataPrediction(Base):
+    __tablename__ = "weather_pm25prediction"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    station_id = Column(Integer, ForeignKey("weather_station.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    pm25_value = Column(Float, nullable=True)
+
+    station = relationship("WeatherStation", back_populates="pm25_prediction")
 

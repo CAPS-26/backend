@@ -18,17 +18,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Isolated virtualenv so we can copy it cleanly to the runtime stage.
-RUN uv venv /opt/venv
-ENV VIRTUAL_ENV=/opt/venv
+# Tell uv sync to install into /opt/venv instead of the default /.venv
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Silence hardlink warnings when using a cache mount across filesystems.
 ENV UV_LINK_MODE=copy
 
-COPY requirements.txt .
+COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install -r requirements.txt
+    uv sync --frozen --no-dev
 
 
 # Stage 2: Runtime
@@ -48,8 +47,7 @@ COPY --from=builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    DJANGO_SETTINGS_MODULE=config.settings
+    PYTHONUNBUFFERED=1
 
 # Run as an unprivileged user.
 RUN useradd --no-create-home --shell /bin/false appuser
@@ -65,7 +63,8 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["gunicorn", "config.wsgi:application", \
+CMD ["gunicorn", "main:app", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
      "--bind", "0.0.0.0:8000", \
      "--workers", "3", \
      "--timeout", "120"]

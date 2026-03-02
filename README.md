@@ -1,28 +1,28 @@
-# Backend AOD
+# Backend Module
 
-Django REST API backend for Aerosol Optical Depth (AOD) satellite data processing and PM2.5 estimation for the Jakarta region.
+REST API backend untuk pemrosesan data satelit Aerosol Optical Depth (AOD) dan estimasi PM2.5 untuk wilayah Jakarta.
 
-## Project Structure
+## Struktur Proyek
 
 ```bash
 backend-aod/
-├── config/                  # Django project settings, urls, wsgi
+├── config/                  # Pengaturan Django, urls, wsgi
 ├── apps/
-│   ├── aod/                 # AOD satellite domain
+│   ├── aod/                 # Domain satelit AOD
 │   │   ├── models.py
 │   │   ├── migrations/
 │   │   └── features/
-│   │       ├── ingestion/   # Fetch & process satellite .nc files (Himawari, VIIRS)
-│   │       ├── estimation/  # Spatial PM2.5 estimation (sklearn)
-│   │       ├── prediction/  # Time-series PM2.5 prediction (LSTM)
-│   │       └── api/         # REST endpoints
-│   └── weather/             # Ground weather & PM2.5 domain
+│   │       ├── ingestion/   # Fetch & proses file satelit .nc (Himawari, VIIRS)
+│   │       ├── estimation/  # Estimasi spasial PM2.5 (sklearn)
+│   │       ├── prediction/  # Prediksi time-series PM2.5 (LSTM)
+│   │       └── api/         # Endpoint REST
+│   └── weather/             # Domain cuaca & PM2.5 ground
 │       ├── models.py
 │       ├── migrations/
 │       └── features/
-│           ├── ingestion/   # Weather API fetch, PM2.5 crawling
-│           └── api/         # REST endpoints
-├── data/                    # Downloaded satellite files (gitignored)
+│           ├── ingestion/   # Fetch API cuaca, crawling PM2.5
+│           └── api/         # Endpoint REST
+├── data/                    # File satelit unduhan (gitignored)
 ├── Dockerfile
 ├── docker-compose.yml
 └── manage.py
@@ -30,43 +30,43 @@ backend-aod/
 
 ---
 
-## Running with Docker (recommended)
+## Menjalankan dengan Docker (direkomendasikan)
 
-### Prerequisites
+### Prasyarat
 
 - Docker >= 24
-- Docker Compose (bundled with Docker Desktop or `docker compose` CLI plugin)
+- Docker Compose (bundel dengan Docker Desktop atau plugin CLI `docker compose`)
 
 ### Setup
 
 ```bash
 cp .env.example .env
-# Edit .env and fill in SECRET_KEY, API keys, and database credentials
+# Edit .env dan isi SECRET_KEY, API keys, dan kredensial database
 ```
 
-Build and start all services:
+Build dan jalankan semua service:
 
 ```bash
 docker compose up --build
 ```
 
-The API will be available at `http://localhost:8000`.
+API akan tersedia di `http://localhost:8000`.
 
-On first boot the `web` service runs `migrate` automatically before starting gunicorn.
+Pada boot pertama, service `web` menjalankan `migrate` secara otomatis sebelum memulai gunicorn.
 
-To run in detached mode:
+Untuk menjalankan di mode detached:
 
 ```bash
 docker compose up -d --build
 ```
 
-To stop:
+Untuk menghentikan:
 
 ```bash
 docker compose down
 ```
 
-To stop and remove volumes (wipes the database):
+Untuk menghentikan dan menghapus volume (menghapus database):
 
 ```bash
 docker compose down -v
@@ -74,9 +74,9 @@ docker compose down -v
 
 ---
 
-## Running Locally (without Docker)
+## Menjalankan Secara Lokal (tanpa Docker)
 
-### 1. System dependencies
+### 1. Dependensi sistem
 
 **Ubuntu / Debian:**
 
@@ -95,7 +95,7 @@ sudo apt-get install -y \
 brew install gdal geos proj postgresql postgis
 ```
 
-### 2. Python environment
+### 2. Lingkungan Python
 
 ```bash
 python -m venv .venv
@@ -106,7 +106,7 @@ pip install -r requirements.txt
 
 ### 3. Database
 
-Connect to PostgreSQL and create the database, user, and required extensions:
+Hubungkan ke PostgreSQL dan buat database, user, serta ekstensi yang diperlukan:
 
 ```sql
 CREATE DATABASE aodproject;
@@ -119,54 +119,54 @@ CREATE EXTENSION postgis;
 CREATE EXTENSION postgis_raster;
 ```
 
-### 4. Environment variables
+### 4. Environment Variables
 
 ```bash
 cp .env.example .env
-# Edit .env with your values
+# Edit .env dengan nilai Anda
 ```
 
-Required variables:
+Variabel yang diperlukan:
 
-| Variable | Description |
-|---|---|
-| `SECRET_KEY` | Django secret key |
-| `DEBUG` | `True` for local dev, `False` for production |
-| `NAMEDB` | Database name |
-| `USERDB` | Database user |
-| `PASSDB` | Database password |
-| `DBHOST` | Database host (default: `127.0.0.1`) |
-| `DBPORT` | Database port (default: `5432`) |
-| `API_KEY` | Visual Crossing weather API key |
-| `USERHIMAWARI` | JAXA FTP username |
-| `PASSHIMAWARI` | JAXA FTP password |
+| Variabel | Deskripsi |
+| --- | --- |
+| `SECRET_KEY` | Kunci rahasia Django |
+| `DEBUG` | `True` untuk dev lokal, `False` untuk produksi |
+| `NAMEDB` | Nama database |
+| `USERDB` | Pengguna database |
+| `PASSDB` | Password database |
+| `DBHOST` | Host database (default: `127.0.0.1`) |
+| `DBPORT` | Port database (default: `5432`) |
+| `API_KEY` | Kunci API cuaca Visual Crossing |
+| `USERHIMAWARI` | Nama pengguna FTP JAXA |
+| `PASSHIMAWARI` | Password FTP JAXA |
 
-### 5. Apply migrations and run
+### 5. Terapkan migrasi dan jalankan
 
 ```bash
 python manage.py migrate
 python manage.py runserver
 ```
 
-API docs (Swagger) will be at `http://127.0.0.1:8000/swagger/`.
+Dokumentasi API (Swagger) akan di `http://127.0.0.1:8000/swagger/`.
 
 ---
 
-## API Endpoints
+## Endpoint API
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/aod/polygon/` | AOD polygons for yesterday |
-| POST | `/api/aod/polygon/by-date/` | AOD polygons for a given date |
-| GET | `/api/aod/pm25/polygon/` | PM2.5 estimate polygons for yesterday |
-| POST | `/api/aod/pm25/polygon/by-date/` | PM2.5 estimate polygons for a given date |
-| GET | `/api/weather/weather/` | Weather data for today |
-| POST | `/api/weather/weather/by-date/` | Weather data for a given date |
-| GET | `/api/weather/pm25/actual/` | Actual PM2.5 readings for today |
-| POST | `/api/weather/pm25/actual/by-date/` | Actual PM2.5 readings for a given date |
-| GET | `/api/weather/pm25/prediction/` | PM2.5 predictions for today |
-| POST | `/api/weather/pm25/prediction/by-date/` | PM2.5 predictions for a given date |
+| Method | Path | Deskripsi |
+| --- | --- | --- |
+| GET | `/api/aod/polygon/` | Polygon AOD untuk kemarin |
+| POST | `/api/aod/polygon/by-date/` | Polygon AOD untuk tanggal tertentu |
+| GET | `/api/aod/pm25/polygon/` | Polygon estimasi PM2.5 untuk kemarin |
+| POST | `/api/aod/pm25/polygon/by-date/` | Polygon estimasi PM2.5 untuk tanggal tertentu |
+| GET | `/api/weather/weather/` | Data cuaca untuk hari ini |
+| POST | `/api/weather/weather/by-date/` | Data cuaca untuk tanggal tertentu |
+| GET | `/api/weather/pm25/actual/` | Pembacaan PM2.5 aktual untuk hari ini |
+| POST | `/api/weather/pm25/actual/by-date/` | Pembacaan PM2.5 aktual untuk tanggal tertentu |
+| GET | `/api/weather/pm25/prediction/` | Prediksi PM2.5 untuk hari ini |
+| POST | `/api/weather/pm25/prediction/by-date/` | Prediksi PM2.5 untuk tanggal tertentu |
 
-Request body for `by-date` AOD endpoints: `{ "tanggal": "YYYY-MM-DD" }`
+Request body untuk endpoint AOD `by-date`: `{ "tanggal": "YYYY-MM-DD" }`
 
-Request body for `by-date` weather/PM2.5 endpoints: `{ "date": "YYYY-MM-DD" }`
+Request body untuk endpoint cuaca/PM2.5 `by-date`: `{ "date": "YYYY-MM-DD" }`
