@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,11 +16,22 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     debug: bool = False
 
-    # Database
+    # Cache
+    cache_backend: str = "memory"
+    redis_url: str | None = None
+    redis_host: str = "redis"
+    redis_port: int = 6379
+    redis_db: int = 0
+
+    # Penjadwal
+    scheduler_enabled: bool = True
+    scheduler_timezone: str = "Asia/Jakarta"
+
+    # Basis data
     namedb: str = "aodproject"
     userdb: str = "aoduser"
     passdb: str = "changeme"
-    dbhost: str = "localhost"
+    dbhost: str = "db"
     dbport: str = "5432"
 
     # API key eksternal
@@ -30,7 +42,7 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         return (
-            f"postgresql+psycopg2://{self.userdb}:{self.passdb}"
+            f"postgresql+asyncpg://{self.userdb}:{self.passdb}"
             f"@{self.dbhost}:{self.dbport}/{self.namedb}"
         )
 

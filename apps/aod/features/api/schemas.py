@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -16,9 +16,9 @@ class GeoJSONGeometry(BaseModel):
 class GeoJSONFeature(BaseModel):
     type: str = "Feature"
     geometry: GeoJSONGeometry
-    properties: Dict[str, Any]
+    properties: dict[str, Any]
 
 
 class GeoJSONFeatureCollection(BaseModel):
     type: str = "FeatureCollection"
-    features: List[GeoJSONFeature]
+    features: list[GeoJSONFeature]

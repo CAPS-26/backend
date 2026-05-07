@@ -1,69 +1,98 @@
 """Prediksi PM2.5 hari berikutnya per stasiun menggunakan model LSTM (.keras)."""
-import os
+
+import asyncio
+import logging
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from datetime import date, timedelta
+from geoalchemy2.shape import to_shape
+from sklearn.preprocessing import MinMaxScaler
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy.orm import Session
-
+from apps.aod.features.prediction.loader import load_model_from_file
 from apps.aod.models import AerosolOpticalDepth
-from apps.weather.models import WeatherData, WeatherStation, PM25DataActual, PM25DataPrediction
 from apps.database import get_db_session
+from apps.weather.models import (
+    PM25DataActual,
+    PM25DataPrediction,
+    WeatherData,
+    WeatherStation,
+)
+
+logger = logging.getLogger(__name__)
 
 # Direktori model .keras per stasiun
-_MODELS_DIR = os.path.join(os.path.dirname(__file__), "ml_models")
+_MODELS_DIR = Path(__file__).resolve().parent / "ml_models"
 
-FEATURE_COLUMNS = ["temp", "dew", "humidity", "precip", "windspeed", "AOD", "ISPU PM2.5"]
+FEATURE_COLUMNS = [
+    "temp",
+    "dew",
+    "humidity",
+    "precip",
+    "windspeed",
+    "AOD",
+    "ISPU PM2.5",
+]
 SEQUENCE_LENGTH = 30
 
 
 def _find_nearest_point(lat_target, lon_target, latitudes, longitudes):
-    points = np.array(list(zip(latitudes, longitudes)))
+    points = np.array(list(zip(latitudes, longitudes, strict=False)))
     target = np.array([lat_target, lon_target])
     distances = np.linalg.norm(points - target, axis=1)
     return distances.argmin()
 
 
-def predict_pm25_for_all_stations():
-    """Jalankan prediksi PM2.5 hari berikutnya untuk semua stasiun."""
-    with get_db_session() as db:
-        _run_prediction(db)
+async def predict_pm25_for_all_stations():
+    """Jalankan prediksi PM2.5 hari berikutnya untuk semua stasiun.
+
+    Pemanggilan load model dan prediksi dijalankan di thread agar event loop tidak
+    terblokir.
+    """
+    async with get_db_session() as db:
+        await _run_prediction(db)
 
 
-def _run_prediction(db: Session):
-    from sklearn.preprocessing import MinMaxScaler
-    from tensorflow.keras.models import load_model
-    from geoalchemy2.shape import to_shape
-
-    end_date = date.today()
+async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
+    end_date = datetime.now(tz=UTC).date()
     yesterday = end_date - timedelta(days=10)
     start_date = yesterday - timedelta(days=SEQUENCE_LENGTH)
 
-    stations = db.query(WeatherStation).all()
+    result = await db.execute(select(WeatherStation))
+    stations = result.scalars().all()
 
     for station in stations:
-        print(f"Processing station: {station.name} (ID: {station.id})")
+        logger.info("Processing station: %s (ID: %s)", station.name, station.id)
         pt = to_shape(station.location)
         lon, lat = pt.x, pt.y
 
-        aod_all = (
-            db.query(AerosolOpticalDepth)
+        result = await db.execute(
+            select(AerosolOpticalDepth)
             .filter(AerosolOpticalDepth.date.between(start_date, yesterday))
             .order_by(AerosolOpticalDepth.date)
-            .all()
         )
-        weather_all = (
-            db.query(WeatherData)
-            .filter(WeatherData.date.between(start_date, yesterday), WeatherData.station_id == station.id)
-            .all()
-        )
-        pm25_all = (
-            db.query(PM25DataActual)
-            .filter(PM25DataActual.date.between(start_date, yesterday), PM25DataActual.station_id == station.id)
-            .all()
-        )
+        aod_all = result.scalars().all()
 
-        # Index berdasarkan tanggal untuk pencarian cepat
+        result = await db.execute(
+            select(WeatherData).filter(
+                WeatherData.date.between(start_date, yesterday),
+                WeatherData.station_id == station.id,
+            )
+        )
+        weather_all = result.scalars().all()
+
+        result = await db.execute(
+            select(PM25DataActual).filter(
+                PM25DataActual.date.between(start_date, yesterday),
+                PM25DataActual.station_id == station.id,
+            )
+        )
+        pm25_all = result.scalars().all()
+
+        # Indeks berdasarkan tanggal untuk pencarian cepat
         weather_by_date = {w.date: w for w in weather_all}
         pm25_by_date = {p.date: p for p in pm25_all}
 
@@ -99,7 +128,7 @@ def _run_prediction(db: Session):
         df = pd.DataFrame(records)
 
         if df.empty:
-            print(f"No data for station {station.name}. Skipping.")
+            logger.info("No data for station %s. Skipping.", station.name)
             continue
 
         for col in FEATURE_COLUMNS:
@@ -107,7 +136,11 @@ def _run_prediction(db: Session):
         df = df.dropna()
 
         if len(df) < SEQUENCE_LENGTH:
-            print(f"Less than {SEQUENCE_LENGTH} days of data for station {station.name}. Skipping.")
+            logger.info(
+                "Less than %s days of data for station %s. Skipping.",
+                SEQUENCE_LENGTH,
+                station.name,
+            )
             continue
 
         scaler = MinMaxScaler()
@@ -117,29 +150,43 @@ def _run_prediction(db: Session):
         sequence_scaled = scaler.transform(sequence_raw)
         x_manual = sequence_scaled[np.newaxis, ...]
 
-        model_path = os.path.join(_MODELS_DIR, f"{station.name}.keras")
-        if not os.path.exists(model_path):
-            print(f"Model not found for station {station.name}: {model_path}")
+        model_path = _MODELS_DIR / f"{station.name}.keras"
+        if not model_path.exists():
+            logger.warning(
+                "Model not found for station %s: %s", station.name, model_path
+            )
             continue
 
         try:
-            model = load_model(model_path)
+            model = await load_model_from_file(str(model_path))
         except Exception as e:
-            print(f"Failed to load model for station {station.name}: {e}")
+            logger.exception(
+                "Failed to load model for station %s", station.name, exc_info=e
+            )
             continue
 
-        y_pred_norm = model.predict(x_manual)[0][0]
+        # Jalankan prediksi di thread jika model.predict bersifat blocking
+        try:
+            y_pred = await asyncio.to_thread(model.predict, x_manual)
+            y_pred_norm = float(y_pred[0][0])
+        except Exception as e:
+            logger.exception(
+                "Prediction failed for station %s", station.name, exc_info=e
+            )
+            continue
         dummy = np.zeros((1, len(FEATURE_COLUMNS)))
         dummy[0, -1] = y_pred_norm
         y_pred_real = scaler.inverse_transform(dummy)[0, -1]
 
-        print(f"PM2.5 prediction for {station.name}: {y_pred_real:.2f}")
+        logger.info("PM2.5 prediction for %s: %.2f", station.name, y_pred_real)
 
-        existing = (
-            db.query(PM25DataPrediction)
-            .filter(PM25DataPrediction.station_id == station.id, PM25DataPrediction.date == yesterday)
-            .first()
+        result = await db.execute(
+            select(PM25DataPrediction).filter(
+                PM25DataPrediction.station_id == station.id,
+                PM25DataPrediction.date == yesterday,
+            )
         )
+        existing = result.scalars().first()
         if existing:
             existing.pm25_value = float(y_pred_real)
         else:
@@ -150,4 +197,4 @@ def _run_prediction(db: Session):
                     pm25_value=float(y_pred_real),
                 )
             )
-        db.commit()
+        await db.commit()

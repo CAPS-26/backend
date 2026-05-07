@@ -1,31 +1,64 @@
 """Crawl nilai ISPU PM2.5 stasiun Jakarta dari portal pemerintah DKI."""
-import requests
+
+import logging
+from datetime import UTC, datetime
+
+import httpx
 from bs4 import BeautifulSoup
-from datetime import datetime
+from sqlalchemy import select
 
 from apps.database import get_db_session
-from apps.weather.models import WeatherStation, PM25DataActual
+from apps.weather.models import PM25DataActual, WeatherStation
+
+logger = logging.getLogger(__name__)
 
 STATION_URLS = [
-    {"url": "https://rendahemisi.jakarta.go.id/ispu-detail/1/us-embassy-1/", "nama_tempat": "us_embassy_1"},
-    {"url": "https://rendahemisi.jakarta.go.id/ispu-detail/2/us-embassy-2/", "nama_tempat": "us_embassy_2"},
-    {"url": "https://rendahemisi.jakarta.go.id/ispu-detail/3/jakarta-gbk/", "nama_tempat": "jakarta_gbk"},
-    {"url": "https://rendahemisi.jakarta.go.id/ispu-detail/4/dki1-bundaran-hi/", "nama_tempat": "bundaran_hi"},
-    {"url": "https://rendahemisi.jakarta.go.id/ispu-detail/5/dki2-kelapa-gading/", "nama_tempat": "kelapa_gading"},
-    {"url": "https://rendahemisi.jakarta.go.id/ispu-detail/6/dki3-jagakarsa/", "nama_tempat": "jagakarsa"},
-    {"url": "https://rendahemisi.jakarta.go.id/ispu-detail/7/dki4-lubang-buaya/", "nama_tempat": "lubang_buaya"},
-    {"url": "https://rendahemisi.jakarta.go.id/ispu-detail/8/dki5-kebun-jeruk/", "nama_tempat": "kebun_jeruk"},
+    {
+        "url": "https://rendahemisi.jakarta.go.id/ispu-detail/1/us-embassy-1/",
+        "nama_tempat": "us_embassy_1",
+    },
+    {
+        "url": "https://rendahemisi.jakarta.go.id/ispu-detail/2/us-embassy-2/",
+        "nama_tempat": "us_embassy_2",
+    },
+    {
+        "url": "https://rendahemisi.jakarta.go.id/ispu-detail/3/jakarta-gbk/",
+        "nama_tempat": "jakarta_gbk",
+    },
+    {
+        "url": "https://rendahemisi.jakarta.go.id/ispu-detail/4/dki1-bundaran-hi/",
+        "nama_tempat": "bundaran_hi",
+    },
+    {
+        "url": "https://rendahemisi.jakarta.go.id/ispu-detail/5/dki2-kelapa-gading/",
+        "nama_tempat": "kelapa_gading",
+    },
+    {
+        "url": "https://rendahemisi.jakarta.go.id/ispu-detail/6/dki3-jagakarsa/",
+        "nama_tempat": "jagakarsa",
+    },
+    {
+        "url": "https://rendahemisi.jakarta.go.id/ispu-detail/7/dki4-lubang-buaya/",
+        "nama_tempat": "lubang_buaya",
+    },
+    {
+        "url": "https://rendahemisi.jakarta.go.id/ispu-detail/8/dki5-kebun-jeruk/",
+        "nama_tempat": "kebun_jeruk",
+    },
 ]
 
 
-def get_ispu_pm25_now():
+async def get_ispu_pm25_now():
     """Scrape nilai ISPU PM2.5 terkini dan simpan ke database."""
     headers = {"User-Agent": "Mozilla/5.0"}
 
-    with get_db_session() as db:
+    async with (
+        httpx.AsyncClient(headers=headers, timeout=30.0) as client,
+        get_db_session() as db,
+    ):
         for tempat in STATION_URLS:
             try:
-                res = requests.get(tempat["url"], headers=headers)
+                res = await client.get(tempat["url"])
                 res.raise_for_status()
                 soup = BeautifulSoup(res.text, "html.parser")
 
@@ -41,39 +74,52 @@ def get_ispu_pm25_now():
                 if nilai_pm25 is None:
                     nilai_pm25 = 0.0
 
-                try:
-                    stasiun = (
-                        db.query(WeatherStation)
-                        .filter(WeatherStation.name.ilike(tempat['nama_tempat'].strip()))
-                        .first()
+                # Cari stasiun
+                result = await db.execute(
+                    select(WeatherStation).filter(
+                        WeatherStation.name.ilike(tempat["nama_tempat"].strip())
                     )
-                    if stasiun is None:
-                        print(f"[Not Found] Station '{tempat['nama_tempat']}' not in database.")
-                        continue
+                )
+                stasiun = result.scalars().first()
 
-                    tanggal = datetime.now().date()
-
-                    existing = (
-                        db.query(PM25DataActual)
-                        .filter_by(station_id=stasiun.id, date=tanggal)
-                        .first()
+                if stasiun is None:
+                    logger.warning(
+                        "[Not Found] Station '%s' not in database.",
+                        tempat["nama_tempat"],
                     )
-                    if existing:
-                        print(f"[Skipped] {tempat['nama_tempat']} | {tanggal} already exists.")
-                        continue
+                    continue
 
-                    record = PM25DataActual(
-                        station_id=stasiun.id,
-                        date=tanggal,
-                        pm25_value=float(nilai_pm25),
+                tanggal = datetime.now(UTC).date()
+
+                # Cek existing
+                result = await db.execute(
+                    select(PM25DataActual).filter_by(
+                        station_id=stasiun.id, date=tanggal
                     )
-                    db.add(record)
-                    db.commit()
-                    print(f"[Saved] {tempat['nama_tempat']} | {tanggal} | PM2.5: {nilai_pm25}")
+                )
+                existing = result.scalars().first()
 
-                except Exception as inner_e:
-                    db.rollback()
-                    print(f"[DB Error] {tempat['nama_tempat']}: {inner_e}")
+                if existing:
+                    logger.info(
+                        "[Skipped] %s | %s already exists.",
+                        tempat["nama_tempat"],
+                        tanggal,
+                    )
+                    continue
 
+                record = PM25DataActual(
+                    station_id=stasiun.id,
+                    date=tanggal,
+                    pm25_value=float(nilai_pm25),
+                )
+                db.add(record)
+                await db.commit()
+                logger.info(
+                    "[Saved] %s | %s | PM2.5: %s",
+                    tempat["nama_tempat"],
+                    tanggal,
+                    nilai_pm25,
+                )
             except Exception as e:
-                print(f"[Error] {tempat['nama_tempat']}: {e}")
+                logger.error("[Error] %s: %s", tempat["nama_tempat"], e)
+                await db.rollback()

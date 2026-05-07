@@ -1,20 +1,28 @@
-"""Pipeline estimasi PM2.5: data grid AOD + data cuaca stasiun terdekat → grid PM2.5 → polygon PostGIS."""
-import os
+"""Pipeline estimasi PM2.5.
+
+Data grid AOD + data cuaca stasiun terdekat → grid PM2.5 → polygon PostGIS.
+"""
+
+import asyncio
 import csv
+import logging
 import math
-
 from pathlib import Path
-from sqlalchemy.orm import Session, joinedload
 
-from apps.aod.models import AerosolOpticalDepth, PM25DataEstimate, PolygonDataPM25
-from apps.weather.models import WeatherData
+from geoalchemy2.shape import to_shape
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
+
 from apps.aod.features.estimation.predictor import predict_model
 from apps.aod.features.estimation.raster_converter import csvToPolygon
+from apps.aod.models import AerosolOpticalDepth, PM25DataEstimate, PolygonDataPM25
 from apps.database import get_db_session
+from apps.weather.models import WeatherData
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[5]
-
-# Direktori output CSV sementara
 _TEMP_DIR = Path(__file__).parent
 
 
@@ -22,40 +30,55 @@ def _euclidean_distance(lat1, lon1, lat2, lon2):
     return math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
 
 
-def estimatePm25():
+def _write_csv(file_path: Path, rows: list[dict]) -> None:
+    with file_path.open(mode="w", newline="") as file_handle:
+        writer = csv.DictWriter(file_handle, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+async def estimatePm25():
     """Jalankan estimasi spasial PM2.5 untuk semua record AOD yang belum diproses."""
-    os.makedirs(_TEMP_DIR, exist_ok=True)
+    _TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-    with get_db_session() as db:
-        _run_estimation(db)
+    async with get_db_session() as db:
+        await _run_estimation(db)
 
 
-def _run_estimation(db: Session):
-    from geoalchemy2.shape import to_shape
-
-    rasterdata_all = db.query(AerosolOpticalDepth).all()
+async def _run_estimation(db: AsyncSession):
+    """Logika utama estimasi PM2.5."""
+    result = await db.execute(select(AerosolOpticalDepth))
+    rasterdata_all = result.scalars().all()
 
     for rasterdata in rasterdata_all:
         aod_value = rasterdata.data
         aod_date = rasterdata.date
 
-        existing = (
-            db.query(PM25DataEstimate)
-            .filter(PM25DataEstimate.aod_id == rasterdata.id)
-            .first()
+        # Cek existing
+        result = await db.execute(
+            select(PM25DataEstimate).filter(PM25DataEstimate.aod_id == rasterdata.id)
         )
+        existing = result.scalars().first()
         if existing:
-            print(f"[SKIP] PM2.5 estimate for AOD ID {rasterdata.id} already exists.")
+            logger.info(
+                f"[SKIP] PM2.5 estimate for AOD ID {rasterdata.id} already exists."
+            )
             continue
 
-        all_weather = (
-            db.query(WeatherData)
+        # Ambil semua data cuaca untuk tanggal tersebut
+        result = await db.execute(
+            select(WeatherData)
             .options(joinedload(WeatherData.station))
             .filter(WeatherData.date == aod_date)
-            .all()
         )
+        all_weather = result.scalars().all()
+
         if not all_weather:
-            print(f"[WARNING] No weather data for {aod_date}, skipping AOD ID {rasterdata.id}.")
+            logger.warning(
+                "[WARNING] No weather data for %s, skipping AOD ID %s.",
+                aod_date,
+                rasterdata.id,
+            )
             continue
 
         all_stations = []
@@ -66,6 +89,7 @@ def _run_estimation(db: Session):
                     "station_id": w.station.id,
                     "location_x": pt.x,
                     "location_y": pt.y,
+                    "weather_data": w,
                 }
             )
 
@@ -75,30 +99,23 @@ def _run_estimation(db: Session):
             aod_lat = aod["latitude"]
             aod_val = aod["aod_values"]
 
-            nearest_station_id = min(
+            # Cari stasiun terdekat dari list stations yang sudah di-fetch
+            nearest = min(
                 all_stations,
                 key=lambda s: _euclidean_distance(
                     aod_lat, aod_lon, s["location_y"], s["location_x"]
                 ),
-            )["station_id"]
-
-            weather_data = (
-                db.query(WeatherData)
-                .options(joinedload(WeatherData.station))
-                .filter(WeatherData.date == aod_date, WeatherData.station_id == nearest_station_id)
-                .first()
             )
-            if not weather_data:
-                continue
+            weather_data = nearest["weather_data"]
+            w_pt_x, w_pt_y = nearest["location_x"], nearest["location_y"]
 
-            w_pt = to_shape(weather_data.station.location)
             merged_rows.append(
                 {
                     "datetime": aod_date,
                     "aod_longitude": aod_lon,
                     "aod_latitude": aod_lat,
-                    "station_longitude": w_pt.x,
-                    "station_latitude": w_pt.y,
+                    "station_longitude": w_pt_x,
+                    "station_latitude": w_pt_y,
                     "AOD": aod_val,
                     "tempmax": weather_data.temp_max,
                     "tempmin": weather_data.temp_min,
@@ -123,20 +140,18 @@ def _run_estimation(db: Session):
             )
 
         if not merged_rows:
-            print(f"[WARNING] No merged data for AOD ID {rasterdata.id}, skipping.")
+            logger.warning(
+                f"[WARNING] No merged data for AOD ID {rasterdata.id}, skipping."
+            )
             continue
 
         file_name = _TEMP_DIR / f"aod_data_{rasterdata.id}.csv"
-        with open(file_name, mode="w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=merged_rows[0].keys())
-            writer.writeheader()
-            writer.writerows(merged_rows)
+        await asyncio.to_thread(_write_csv, file_name, merged_rows)
 
-        print(f"[INFO] AOD ID {rasterdata.id} saved to {file_name}")
+        logger.info(f"AOD ID {rasterdata.id} saved to {file_name}")
 
+        # ML Prediction (Blocking, but okay for background task)
         df = predict_model(str(file_name))
-        print(df.shape, len(rasterdata.data))
-
         data = df.to_dict(orient="records")
         jakarta_geojson = BASE_DIR / "id-jk.geojson"
         polygondata = csvToPolygon(df, str(jakarta_geojson))
@@ -147,7 +162,7 @@ def _run_estimation(db: Session):
             date=rasterdata.date,
         )
         db.add(pm25data)
-        db.flush()  # dapatkan pm25data.id sebelum commit
+        await db.flush()
 
         for _, row in polygondata.iterrows():
             geom = row.geometry
@@ -171,9 +186,8 @@ def _run_estimation(db: Session):
                     )
                 )
 
-        db.commit()
-        print(f"[SUCCESS] PM2.5 estimation for AOD ID {rasterdata.id} saved.\n")
+        await db.commit()
+        logger.info(f"[SUCCESS] PM2.5 estimation for AOD ID {rasterdata.id} saved.")
 
         if file_name.exists():
             file_name.unlink()
-            print(f"Temp file {file_name} deleted.")

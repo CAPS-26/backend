@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
-from sqlalchemy.orm import relationship
 from geoalchemy2 import Geometry
+from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 
 from apps.database import Base
 
@@ -67,4 +67,3 @@ class PM25DataPrediction(Base):
     pm25_value = Column(Float, nullable=True)
 
     station = relationship("WeatherStation", back_populates="pm25_prediction")
-

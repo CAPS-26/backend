@@ -29,14 +29,14 @@ backend/
 
 ---
 
-## Menjalankan dengan Docker (direkomendasikan)
+## Menjalankan dengan Docker
 
-### Prasyarat
+Prasyarat:
 
-- Docker >= 24
-- Docker Compose (bundel dengan Docker Desktop atau plugin CLI `docker compose`)
+- Docker 24 atau lebih baru
+- Docker Compose (plugin `docker compose` atau Docker Desktop)
 
-### Setup
+Setup singkat (wajib gunakan `.env` di Linux):
 
 ```bash
 cp .env.example .env
@@ -49,23 +49,21 @@ Build dan jalankan semua service:
 docker compose up --build
 ```
 
-API akan tersedia di `http://localhost:8000`.
+API akan tersedia di http://localhost:8000. Pada boot pertama, service web dapat menjalankan migrasi database otomatis.
 
-Pada boot pertama, service `web` menjalankan migrasi database secara otomatis.
-
-Untuk menjalankan di mode detached:
+Mode detached:
 
 ```bash
 docker compose up -d --build
 ```
 
-Untuk menghentikan:
+Hentikan service:
 
 ```bash
 docker compose down
 ```
 
-Untuk menghentikan dan menghapus volume (menghapus database):
+Hentikan dan hapus volume (menghapus data database):
 
 ```bash
 docker compose down -v
@@ -100,7 +98,8 @@ brew install gdal geos proj postgresql postgis
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install -e . # atau pip install -r requirements.txt jika ada
+pip install uv
+uv sync
 ```
 
 ### 3. Database
@@ -118,7 +117,7 @@ CREATE EXTENSION postgis;
 CREATE EXTENSION postgis_raster;
 ```
 
-### 4. Environment Variables
+### 4. Environment Variables (wajib di Linux)
 
 ```bash
 cp .env.example .env
@@ -134,23 +133,76 @@ Variabel yang diperlukan:
 | `NAMEDB` | Nama database |
 | `USERDB` | Pengguna database |
 | `PASSDB` | Password database |
-| `DBHOST` | Host database (default: `localhost`) |
+| `DBHOST` | Host database (default: `db` when using the included Docker Compose, otherwise `localhost`) |
 | `DBPORT` | Port database (default: `5432`) |
 | `API_KEY` | Kunci API cuaca Visual Crossing |
 | `USERHIMAWARI` | Nama pengguna FTP JAXA |
 | `PASSHIMAWARI` | Password FTP JAXA |
 
-### 5. Terapkan migrasi dan jalankan
+### 5. Terapkan migrasi dan jalankan (via `uv`)
+
+Jalankan migrasi database:
 
 ```bash
-# Jalankan migrasi database
-alembic upgrade head
-
-# Jalankan server FastAPI (Development)
-fastapi dev main.py
+uv run alembic upgrade head
 ```
 
-Dokumentasi API (Swagger) akan ada di `http://127.0.0.1:8000/docs`.
+Jalankan server FastAPI (development):
+
+```bash
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Dokumentasi API (Swagger) tersedia di http://127.0.0.1:8000/docs
+
+Catatan operasional singkat:
+
+- Scheduler dijalankan di level aplikasi. Job dijalankan oleh APScheduler yang dibuat pada startup aplikasi.
+- Caching mendukung Redis bila dikonfigurasi, dan akan fallback ke in-memory cache bila koneksi Redis gagal.
+- Prediksi time-series menggunakan model LSTM; proyek sudah menyediakan kerangka untuk model TensorFlow (.keras). Anda dapat menaruh model file di `apps/aod/features/prediction/ml_models/` dan loader akan mencoba memuatnya. Saya juga menambahkan dukungan loader untuk model PyTorch (.pt, .pth).
+
+---
+
+## Make commands (development)
+
+This repository includes a `Makefile` with convenient targets for local development. All commands are expected to run through the `uv` runner.
+
+- `make install` : synchronize or install project environment (runs `uv sync` by default).
+- `make migrate` : run migrations (`uv run alembic upgrade head`).
+- `make seed` : run database seed script (`uv run python scripts/seed.py stations`).
+- `make test` : run tests (`uv run pytest -vv`).
+- `make lint` : run linters and auto-fix with `uv run ruff` and `uv run bandit`.
+- `make format` : run `uv run ruff format` to reformat code.
+- `make dev` : run the application locally with `uv run uvicorn` (development host and reload enabled).
+
+If you prefer not to use `make`, run the equivalent commands explicitly via `uv run ...`.
+
+## Development tools and `uv` runner
+
+The `Makefile` referenced above uses a small runner called `uv` to execute commands in a consistent environment. This project expects `uv` to be installed.
+
+Install `uv` (recommended for parity with the Makefile). You can install it with `pip` or `pipx`:
+
+```bash
+# Option A: install into the active virtualenv
+pip install uv
+
+# Option B: install globally for CLI usage (recommended via pipx)
+pipx install uv
+```
+
+Notes:
+- `uv` is the standard runner for this repository to keep commands consistent across environments.
+
+## Linting rules to ignore
+
+Ruff ignores the following rules to avoid noise in this codebase:
+
+- `B008`: FastAPI dependency injection uses `Depends(...)` as a default argument.
+- `N802`: Legacy function names are preserved to avoid breaking public entrypoints.
+- `PLR2004`: Status code checks in tests are clearer as literals.
+- `S105`: Default `SECRET_KEY` is a placeholder and must be overridden via `.env`.
+- `S321`: FTP is required for the upstream Himawari source.
 
 ---
 

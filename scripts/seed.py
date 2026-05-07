@@ -1,8 +1,23 @@
+import asyncio
+import logging
 import sys
-import os
+from pathlib import Path
+
+from sqlalchemy import select
 
 # Tambahkan root proyek ke sys.path agar bisa mengimpor 'apps'
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+logger = logging.getLogger(__name__)
+
+from apps.database import get_db_session  # noqa: E402
+from apps.weather.features.ingestion.pm25_crawler import (  # noqa: E402
+    get_ispu_pm25_now,
+)
+from apps.weather.features.ingestion.weather_fetcher import (  # noqa: E402
+    fetch_weather_data,
+)
+from apps.weather.models import WeatherStation  # noqa: E402
 
 #   Nama Stasiun      Lokasi
 #   us_embassy_1/2    US Embassy, Jl. Medan Merdeka Selatan 3-5 — Jakarta Pusat
@@ -15,56 +30,63 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # ---------------------------------------------------------------------------
 STATIONS = [
     # nama               lon         lat
-    ("us_embassy_1",   106.8279877,  -6.1811056),
-    ("us_embassy_2",   106.79319751533286,  -6.236658728205383),
-    ("jakarta_gbk",    106.803,  -6.2155),
-    ("bundaran_hi",    106.8235,  -6.19466),
-    ("kelapa_gading",  106.910887,  -6.1535777),
-    ("jagakarsa",      106.80367,  -6.35693),
-    ("lubang_buaya",   106.90919,  -6.28889),
-    ("kebun_jeruk",    106.7525,  -6.20737),
+    ("us_embassy_1", 106.8279877, -6.1811056),
+    ("us_embassy_2", 106.79319751533286, -6.236658728205383),
+    ("jakarta_gbk", 106.803, -6.2155),
+    ("bundaran_hi", 106.8235, -6.19466),
+    ("kelapa_gading", 106.910887, -6.1535777),
+    ("jagakarsa", 106.80367, -6.35693),
+    ("lubang_buaya", 106.90919, -6.28889),
+    ("kebun_jeruk", 106.7525, -6.20737),
 ]
 
 
-def seed_stations():
-    from apps.database import get_db_session
-    from apps.weather.models import WeatherStation
-
-    with get_db_session() as db:
-        inserted = 0
+async def seed_stations():
+    inserted = 0
+    async with get_db_session() as db:
         for name, lon, lat in STATIONS:
-            if db.query(WeatherStation).filter(WeatherStation.name == name).first():
+            result = await db.execute(
+                select(WeatherStation).filter(WeatherStation.name == name)
+            )
+            if result.scalars().first():
                 continue
-            db.add(WeatherStation(
-                name=name,
-                location=f"SRID=4326;POINT({lon} {lat})",
-            ))
+            db.add(
+                WeatherStation(
+                    name=name,
+                    location=f"SRID=4326;POINT({lon} {lat})",
+                )
+            )
             inserted += 1
-        db.commit()
-    print(f"[seed] stations: {inserted} inserted, {len(STATIONS) - inserted} already existed.")
+    logger.info(
+        "[seed] stations: %s inserted, %s already existed.",
+        inserted,
+        len(STATIONS) - inserted,
+    )
 
 
-def run_weather():
-    from apps.weather.features.ingestion.weather_fetcher import fetch_weather_data
-    print("[seed] fetching weather data ...")
-    fetch_weather_data()
+async def run_weather():
+    logger.info("[seed] fetching weather data ...")
+    await fetch_weather_data()
 
 
-def run_pm25():
-    from apps.weather.features.ingestion.pm25_crawler import get_ispu_pm25_now
-    print("[seed] crawling ISPU PM2.5 ...")
-    get_ispu_pm25_now()
+async def run_pm25():
+    logger.info("[seed] crawling ISPU PM2.5 ...")
+    await get_ispu_pm25_now()
 
 
-if __name__ == "__main__":
+async def main():
     args = set(sys.argv[1:])
     run_all = not args
 
     if run_all or "stations" in args:
-        seed_stations()
+        await seed_stations()
 
     if run_all or "weather" in args:
-        run_weather()
+        await run_weather()
 
     if run_all or "pm25" in args:
-        run_pm25()
+        await run_pm25()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

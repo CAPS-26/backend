@@ -1,5 +1,4 @@
 from datetime import date
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -9,28 +8,28 @@ class DateInput(BaseModel):
 
 
 class WeatherDataOut(BaseModel):
-    station_name: Optional[str]
-    latitude: Optional[float]
-    longitude: Optional[float]
-    temperature: Optional[float]
-    precipitation: Optional[float]
-    humidity: Optional[float]
-    wind_dir: Optional[float]
-    wind_speed: Optional[float]
+    station_name: str | None
+    latitude: float | None
+    longitude: float | None
+    temperature: float | None
+    precipitation: float | None
+    humidity: float | None
+    wind_dir: float | None
+    wind_speed: float | None
 
 
 class PM25ActualOut(BaseModel):
     id: int
     station_id: int
-    station_name: Optional[str]
-    latitude: Optional[float]
-    longitude: Optional[float]
-    date: Optional[date]
-    pm25_value: Optional[float]
+    station_name: str | None
+    latitude: float | None
+    longitude: float | None
+    date: date | None
+    pm25_value: float | None
 
 
 class PM25PredictionOut(BaseModel):
     id: int
     station_id: int
     date: date
-    pm25_value: Optional[float]
+    pm25_value: float | None

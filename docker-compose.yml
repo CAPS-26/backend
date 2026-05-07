@@ -2,43 +2,121 @@ services:
   db:
     image: postgis/postgis:16-3.4-alpine
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: ${NAMEDB}
-      POSTGRES_USER: ${USERDB}
-      POSTGRES_PASSWORD: ${PASSDB}
+      POSTGRES_DB: ${NAMEDB:-aodproject}
+      POSTGRES_USER: ${USERDB:-aoduser}
+      POSTGRES_PASSWORD: ${PASSDB:-changeme}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${USERDB} -d ${NAMEDB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${USERDB:-aoduser} -d ${NAMEDB:-aodproject}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
+    networks:
+      - backend_net
 
-  web:
-    build: .
-    restart: unless-stopped
-    env_file: .env
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"
+    env_file:
+      - .env
     environment:
       DBHOST: db
       DBPORT: "5432"
+      CACHE_BACKEND: ${CACHE_BACKEND:-memory}
+      REDIS_URL: ${REDIS_URL:-}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Asia/Jakarta}
+      PYTHONPATH: /app
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend_net
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DBHOST: db
+      DBPORT: "5432"
+      CACHE_BACKEND: ${CACHE_BACKEND:-memory}
+      REDIS_URL: ${REDIS_URL:-}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Asia/Jakarta}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+      PYTHONPATH: /app
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     volumes:
       - media_data:/app/media
       - satellite_data:/app/data
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     command:
       - sh
       - -c
-      - |
-        alembic upgrade head && python scripts/seed.py stations && \
-        gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 3 --timeout 120
+      - >
+        gunicorn main:app
+        --worker-class uvicorn.workers.UvicornWorker
+        --bind 0.0.0.0:8000
+        --workers ${WEB_CONCURRENCY:-2}
+        --timeout 120
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')\" "]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend_net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    profiles:
+      - cache
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --save
+      - "60"
+      - "1"
+      - --loglevel
+      - warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - backend_net
 
 volumes:
   postgres_data:
   media_data:
   satellite_data:
+  redis_data:
+
+networks:
+  backend_net:
+    driver: bridge
