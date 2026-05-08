@@ -76,9 +76,13 @@ async def run_pm25():
 
 async def main():
     args = set(sys.argv[1:])
-    run_all = not args
+    # Jika tidak ada argumen, jalankan hanya stations secara default untuk baseline
+    run_all = False
+    
+    if "all" in args:
+        run_all = True
 
-    if run_all or "stations" in args:
+    if run_all or "stations" in args or not args:
         await seed_stations()
 
     if run_all or "weather" in args:

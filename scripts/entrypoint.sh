@@ -2,10 +2,11 @@
 set -e
 
 echo "Running Database Migrations..."
-alembic upgrade head
+alembic upgrade head || exit 1
 
 echo "Running Data Seeding (Baseline)..."
-python scripts/seed.py
+# Jalankan seed hanya untuk stations agar stabil, tambahkan || true agar tidak menggagalkan deployment jika record sudah ada atau koneksi timeout
+python scripts/seed.py stations || echo "Seed stations skipped or failed"
 
 echo "Starting Application..."
 exec "$@"
