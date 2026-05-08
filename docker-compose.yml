@@ -71,17 +71,7 @@ services:
       migrate:
         condition: service_completed_successfully
     entrypoint: ["/app/scripts/entrypoint.sh"]
-    command:
-      - gunicorn
-      - main:app
-      - --worker-class
-      - uvicorn.workers.UvicornWorker
-      - --bind
-      - 0.0.0.0:1963
-      - --workers
-      - ${WEB_CONCURRENCY:-2}
-      - --timeout
-      - 120
+    command: ["gunicorn", "main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:1963", "--workers", "2", "--timeout", "120"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:1963/')\" "]
       interval: 30s
