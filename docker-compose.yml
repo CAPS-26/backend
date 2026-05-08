@@ -7,10 +7,19 @@ services:
     environment:
       POSTGRES_DB: ${NAMEDB:-aodproject}
       POSTGRES_USER: ${USERDB:-aoduser}
-      POSTGRES_PASSWORD: ${PASSDB:-changeme}
+      POSTGRES_PASSWORD: ${PASSDB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
+    # Menonaktifkan log koneksi yang berisik
+    command: 
+      - postgres
+      - -c
+      - log_connections=off
+      - -c
+      - log_disconnections=off
+      - -c
+      - log_min_messages=error
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${USERDB:-aoduser} -d ${NAMEDB:-aodproject}"]
       interval: 10s
@@ -19,6 +28,10 @@ services:
       start_period: 15s
     networks:
       - backend_net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   migrate:
     build:
@@ -37,6 +50,7 @@ services:
       TZ: Asia/Jakarta
       PYTHONPATH: /app
       API_KEY: ${API_KEY}
+      RUN_MIGRATIONS: "true"
     entrypoint: ["/app/scripts/entrypoint.sh"]
     command: ["true"]
     depends_on:
@@ -44,6 +58,10 @@ services:
         condition: service_healthy
     networks:
       - backend_net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   web:
     build:
@@ -57,7 +75,7 @@ services:
       DBPORT: "5432"
       CACHE_BACKEND: ${CACHE_BACKEND:-redis}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
       SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Asia/Jakarta}
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
       TZ: Asia/Jakarta
@@ -82,18 +100,23 @@ services:
       start_period: 30s
     networks:
       - backend_net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   redis:
-    # Redis ini bersifat internal
     image: redis:7-alpine
     restart: unless-stopped
+    # Redis Overcommit & Memory Management
     command:
       - redis-server
       - --appendonly
       - "yes"
-      - --save
-      - "60"
-      - "1"
+      - --maxmemory
+      - 200mb
+      - --maxmemory-policy
+      - allkeys-lru
       - --loglevel
       - warning
     volumes:
@@ -106,6 +129,10 @@ services:
       start_period: 5s
     networks:
       - backend_net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   celery_worker:
     build:
@@ -120,16 +147,22 @@ services:
       REDIS_URL: redis://redis:6379/0
       TZ: Asia/Jakarta
       PYTHONPATH: /app
-    command: ["celery", "-A", "apps.core.celery_app", "worker", "--loglevel=info"]
+    command: ["celery", "-A", "apps.core.celery_app", "worker", "--loglevel=info", "--concurrency=1"]
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - satellite_data:/app/data
     networks:
       - backend_net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
   celery_beat:
     build:
@@ -148,6 +181,10 @@ services:
         condition: service_healthy
     networks:
       - backend_net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
 volumes:
   postgres_data:
