@@ -5,19 +5,21 @@ import os
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from geoalchemy2.shape import to_shape
 from sqlalchemy import func, select
 
 from apps.database import get_db_session
 from apps.weather.models import WeatherData, WeatherStation
+from config.settings import settings
 
-API_KEY = os.getenv("API_KEY")
+API_KEY = settings.api_key
 BASE_URL = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/"
 HTTP_OK = 200
 
 logger = logging.getLogger(__name__)
 
 
-# Helper geometri — GeoAlchemy2 mengembalikan WKBElement, di-parse dengan shapely
+# Helper geometri karena GeoAlchemy2 mengembalikan WKBElement, di-parse dengan shapely
 
 
 def _loc_lat(location):

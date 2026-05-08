@@ -15,12 +15,16 @@ engine = create_async_engine(
 )
 
 AsyncSessionLocal = async_sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+    autocommit=False,
+    autoflush=False,
+    expire_on_commit=False,
+    bind=engine,
+    class_=AsyncSession,
 )
 
 
 class Base(DeclarativeBase):
-    """Base deklaratif — diimpor oleh semua modul model."""
+    """Base deklaratif yang diimpor oleh semua modul model."""
 
     pass
 
