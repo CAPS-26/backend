@@ -7,11 +7,12 @@ requires-python = ">=3.11"
 dependencies = [
     # Web framework
     "fastapi>=0.115.0",
+    "scalar-fastapi>=1.0.0",
     "uvicorn[standard]>=0.32.0",
     "gunicorn>=23.0.0",
     # Database
     "sqlalchemy>=2.0.0",
-    "geoalchemy2>=0.15.0",
+    "geoalchemy2>=0.17.0,!=0.18.3",
     "alembic>=1.14.0",
     # Config
     "pydantic>=2.0.0",
@@ -35,9 +36,11 @@ dependencies = [
     # HTTP / scraping
     "requests>=2.32.0",
     "beautifulsoup4>=4.13.0",
+    "httpx>=0.28.1",
     "asyncpg>=0.31.0",
     "fastapi-cache2[redis]>=0.2.2",
     "redis>=4.6.0",
+    "celery>=5.4.0",
 ]
 
 [dependency-groups]

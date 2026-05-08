@@ -1,6 +1,7 @@
 """API data cuaca dan PM2.5 per stasiun."""
 
-from fastapi import APIRouter, Depends
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +30,16 @@ def _get_service(
     return WeatherApiService(repo)
 
 
+def _parse_date(date_str: str):
+    try:
+        return datetime.strptime(date_str, "%d-%m-%Y").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Format tanggal salah. Gunakan DD-MM-YYYY (Contoh: 08-05-2026)",
+        )
+
+
 @router.get(
     "/weather/",
     summary="Ambil Data Cuaca Hari Ini",
@@ -44,14 +55,15 @@ async def get_latest_weather(
 @router.post(
     "/weather/by-date/",
     summary="Ambil Data Cuaca Berdasarkan Tanggal",
-    description="Mengembalikan data cuaca berdasarkan tanggal (YYYY-MM-DD).",
+    description="Mengembalikan data cuaca berdasarkan tanggal (Format: DD-MM-YYYY).",
 )
 @cache(expire=86400)
 async def get_weather_by_date(
     body: DateInput,
     service: WeatherApiService = Depends(_get_service),
 ) -> list[WeatherDataOut]:
-    return await service.get_weather_by_date(body.date)
+    target_date = _parse_date(body.date)
+    return await service.get_weather_by_date(target_date)
 
 
 @router.get(
@@ -68,13 +80,15 @@ async def get_latest_pm25_actual(
 @router.post(
     "/pm25/actual/by-date/",
     summary="Ambil Data PM2.5 Aktual Berdasarkan Tanggal",
+    description="Mengembalikan data PM2.5 aktual berdasarkan tanggal (Format: DD-MM-YYYY).",
 )
 @cache(expire=86400)
 async def get_pm25_actual_by_date(
     body: DateInput,
     service: WeatherApiService = Depends(_get_service),
 ) -> list[PM25ActualOut]:
-    return await service.get_pm25_actual_by_date(body.date)
+    target_date = _parse_date(body.date)
+    return await service.get_pm25_actual_by_date(target_date)
 
 
 @router.get(
@@ -91,10 +105,12 @@ async def get_latest_pm25_prediction(
 @router.post(
     "/pm25/prediction/by-date/",
     summary="Ambil Data PM2.5 Prediksi Berdasarkan Tanggal",
+    description="Mengembalikan data PM2.5 prediksi berdasarkan tanggal (Format: DD-MM-YYYY).",
 )
 @cache(expire=86400)
 async def get_pm25_prediction_by_date(
     body: DateInput,
     service: WeatherApiService = Depends(_get_service),
 ) -> list[PM25PredictionOut]:
-    return await service.get_pm25_prediction_by_date(body.date)
+    target_date = _parse_date(body.date)
+    return await service.get_pm25_prediction_by_date(target_date)

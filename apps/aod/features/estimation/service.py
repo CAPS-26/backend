@@ -47,23 +47,26 @@ async def estimatePm25():
 
 async def _run_estimation(db: AsyncSession):
     """Logika utama estimasi PM2.5."""
+    # 1. Fetch semua data AOD
     result = await db.execute(select(AerosolOpticalDepth))
     rasterdata_all = result.scalars().all()
+    if not rasterdata_all:
+        return
+
+    # 2. Bulk check untuk PM2.5 estimate yang sudah ada
+    aod_ids = [r.id for r in rasterdata_all]
+    existing_result = await db.execute(
+        select(PM25DataEstimate.aod_id).where(PM25DataEstimate.aod_id.in_(aod_ids))
+    )
+    existing_aod_ids = set(existing_result.scalars().all())
 
     for rasterdata in rasterdata_all:
+        if rasterdata.id in existing_aod_ids:
+            logger.info(f"[SKIP] AOD ID {rasterdata.id} already exists.")
+            continue
+
         aod_value = rasterdata.data
         aod_date = rasterdata.date
-
-        # Cek existing
-        result = await db.execute(
-            select(PM25DataEstimate).filter(PM25DataEstimate.aod_id == rasterdata.id)
-        )
-        existing = result.scalars().first()
-        if existing:
-            logger.info(
-                f"[SKIP] PM2.5 estimate for AOD ID {rasterdata.id} already exists."
-            )
-            continue
 
         # Ambil semua data cuaca untuk tanggal tersebut
         result = await db.execute(
@@ -150,8 +153,8 @@ async def _run_estimation(db: AsyncSession):
 
         logger.info(f"AOD ID {rasterdata.id} saved to {file_name}")
 
-        # ML Prediction (Blocking, but okay for background task)
-        df = predict_model(str(file_name))
+        # ML Prediction
+        df = await asyncio.to_thread(predict_model, str(file_name))
         data = df.to_dict(orient="records")
         jakarta_geojson = BASE_DIR / "id-jk.geojson"
         polygondata = csvToPolygon(df, str(jakarta_geojson))
@@ -164,11 +167,13 @@ async def _run_estimation(db: AsyncSession):
         db.add(pm25data)
         await db.flush()
 
+        # Bulk add polygons
+        polygons_to_add = []
         for _, row in polygondata.iterrows():
             geom = row.geometry
             if geom.geom_type == "MultiPolygon":
                 for poly in geom.geoms:
-                    db.add(
+                    polygons_to_add.append(
                         PolygonDataPM25(
                             pm25_id=pm25data.id,
                             geom=f"SRID=4326;{poly.wkt}",
@@ -177,7 +182,7 @@ async def _run_estimation(db: AsyncSession):
                         )
                     )
             else:
-                db.add(
+                polygons_to_add.append(
                     PolygonDataPM25(
                         pm25_id=pm25data.id,
                         geom=f"SRID=4326;{geom.wkt}",
@@ -185,6 +190,8 @@ async def _run_estimation(db: AsyncSession):
                         date=pm25data.date,
                     )
                 )
+        if polygons_to_add:
+            db.add_all(polygons_to_add)
 
         await db.commit()
         logger.info(f"[SUCCESS] PM2.5 estimation for AOD ID {rasterdata.id} saved.")

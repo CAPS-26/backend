@@ -21,21 +21,33 @@ def _list_files(base_path: Path) -> list[Path]:
 
 
 async def _pm25_to_database(folder_path: str, kolom_nilai: str = "ISPU PM2.5"):
-    """Baca file Excel dari folder_path dan simpan rata-rata PM2.5 harian ke DB."""
+    """Baca file Excel dari folder_path dan simpan rata-rata PM2.5 harian ke DB secara efisien."""
     base_path = Path(folder_path)
+    if not base_path.exists():
+        return
+
+    files = [f for f in base_path.iterdir() if f.suffix in {".xls", ".xlsx"}]
+    if not files:
+        return
+
     async with get_db_session() as db:
-        for file_path in await asyncio.to_thread(_list_files, base_path):
-            if file_path.suffix not in {".xls", ".xlsx"}:
-                continue
+        # Pre-fetch stations to avoid N+1
+        result_stations = await db.execute(select(WeatherStation))
+        stations_map = {s.name.lower(): s for s in result_stations.scalars().all()}
+
+        for file_path in files:
             try:
                 parts = file_path.stem.split("_")
-                nama_stasiun = "_".join(parts[:-1])
+                if len(parts) < 2:
+                    continue
+                nama_stasiun = "_".join(parts[:-1]).lower()
                 tanggal_str = parts[-1]
                 tanggal = (
                     datetime.strptime(tanggal_str, "%Y%m%d").replace(tzinfo=UTC).date()
                 )
 
-                df = pd.read_excel(file_path)
+                # Baca excel (blocking, jalankan di thread)
+                df = await asyncio.to_thread(pd.read_excel, file_path)
 
                 if kolom_nilai not in df.columns:
                     logger.warning(
@@ -45,46 +57,50 @@ async def _pm25_to_database(folder_path: str, kolom_nilai: str = "ISPU PM2.5"):
 
                 df[kolom_nilai] = pd.to_numeric(df[kolom_nilai], errors="coerce")
                 rata2 = df[kolom_nilai].mean()
+                if pd.isna(rata2):
+                    rata2 = 0.0
 
-                result = await db.execute(
-                    select(WeatherStation).filter(
-                        WeatherStation.name.ilike(nama_stasiun.strip())
-                    )
-                )
-                stasiun = result.scalars().first()
+                stasiun = stations_map.get(nama_stasiun)
                 if stasiun is None:
                     logger.warning(
                         "[Not Found] Station '%s' not in database.", nama_stasiun
                     )
                     continue
 
-                record = PM25DataActual(
-                    station_id=stasiun.id,
-                    date=tanggal,
-                    pm25_value=float(rata2),
+                # Cek existing
+                result_existing = await db.execute(
+                    select(PM25DataActual).filter_by(
+                        station_id=stasiun.id, date=tanggal
+                    )
                 )
-                db.add(record)
-                await db.commit()
-                logger.info("[Saved] %s | %s | avg: %.2f", nama_stasiun, tanggal, rata2)
+                if result_existing.scalars().first():
+                    logger.info(
+                        "[Skipped] %s | %s already exists.", stasiun.name, tanggal
+                    )
+                    continue
+
+                db.add(
+                    PM25DataActual(
+                        station_id=stasiun.id,
+                        date=tanggal,
+                        pm25_value=float(rata2),
+                    )
+                )
+                logger.info("[Saved] %s | %s | avg: %.2f", stasiun.name, tanggal, rata2)
 
                 try:
                     file_path.unlink()
-                    logger.info("[Deleted] %s", file_path.name)
                 except Exception as e:
                     logger.warning("[Delete Error] %s: %s", file_path.name, e)
 
             except Exception as e:
-                await db.rollback()
                 logger.error("[Error] %s: %s", file_path.name, e)
+
+        # get_db_session akan melakukan commit otomatis
 
 
 async def pm25ToDatabase(folder_path: str, kolom_nilai: str = "ISPU PM2.5"):
-    """Entrypoint async untuk impor file Excel PM2.5.
-
-    Gunakan coroutine ini saat dipanggil dari konteks async (scheduler).
-    Untuk penggunaan CLI, panggil `pm25ToDatabase_sync` yang menjalankan
-    coroutine di event loop baru.
-    """
+    """Entrypoint async untuk impor file Excel PM2.5."""
     await _pm25_to_database(folder_path, kolom_nilai)
 
 

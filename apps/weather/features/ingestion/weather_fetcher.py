@@ -1,24 +1,26 @@
 """Ambil data cuaca harian dari Visual Crossing API dan simpan ke tabel WeatherData."""
 
+import asyncio
 import logging
 import os
 from datetime import UTC, datetime, timedelta
 
 import httpx
 from geoalchemy2.shape import to_shape
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from apps.database import get_db_session
 from apps.weather.models import WeatherData, WeatherStation
+from config.settings import settings
 
-API_KEY = os.getenv("API_KEY")
+API_KEY = settings.api_key
 BASE_URL = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/"
 HTTP_OK = 200
 
 logger = logging.getLogger(__name__)
 
 
-# Helper geometri — GeoAlchemy2 mengembalikan WKBElement, di-parse dengan shapely
+# Helper geometri karena GeoAlchemy2 mengembalikan WKBElement, di-parse dengan shapely
 
 
 def _loc_lat(location):
@@ -57,136 +59,159 @@ def _make_weather(station_id, date_obj, day_data):
 
 
 async def fetch_weather_data():
-    """Ambil data cuaca hari ini untuk semua stasiun."""
+    """Ambil data cuaca hari ini untuk semua stasiun secara paralel dan efisien."""
     async with get_db_session() as db:
-        result = await db.execute(select(WeatherStation))
-        stations = result.scalars().all()
+        # 1. Ambil semua stasiun sekaligus
+        result = await db.execute(
+            select(
+                WeatherStation,
+                func.ST_Y(WeatherStation.location).label("lat"),
+                func.ST_X(WeatherStation.location).label("lon"),
+            )
+        )
+        rows = result.all()
+        if not rows:
+            return
 
+        # 2. Parallel API Fetching menggunakan asyncio.gather
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for station in stations:
-                lat = _loc_lat(station.location)
-                lon = _loc_lon(station.location)
-                name = station.name
+            tasks = []
+            for row in rows:
+                url = f"{BASE_URL}{row.lat},{row.lon}?unitGroup=metric&key={API_KEY}&include=days"
+                tasks.append(client.get(url))
 
-                url = (
-                    f"{BASE_URL}{lat},{lon}?unitGroup=metric&key={API_KEY}&include=days"
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 3. Kumpulkan data hasil fetch untuk diproses
+        new_records_data = []  # List of (station_id, name, date_obj, day_data)
+        dates_to_check = set()
+        station_ids_to_check = set()
+
+        for row, response in zip(rows, responses):
+            station_obj = row[0]
+            if isinstance(response, Exception) or response.status_code != HTTP_OK:
+                logger.warning("[Fetch Failed] %s", station_obj.name)
+                continue
+
+            data = response.json()
+            days = data.get("days", [])
+            if not days:
+                continue
+
+            day_data = days[0]
+            date_str = day_data.get("datetime")
+            if date_str:
+                date_obj = (
+                    datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
                 )
-                response = await client.get(url)
+                new_records_data.append(
+                    (station_obj.id, station_obj.name, date_obj, day_data)
+                )
+                dates_to_check.add(date_obj)
+                station_ids_to_check.add(station_obj.id)
 
-                if response.status_code == HTTP_OK:
-                    data = response.json()
-                    days = data.get("days", [])
+        if not new_records_data:
+            return
 
-                    if days:
-                        day_data = days[0]
-                        date_str = day_data.get("datetime")
-                        if date_str:
-                            date_obj = (
-                                datetime.strptime(date_str, "%Y-%m-%d")
-                                .replace(tzinfo=UTC)
-                                .date()
-                            )
-                            result = await db.execute(
-                                select(WeatherData).filter_by(
-                                    station_id=station.id, date=date_obj
-                                )
-                            )
-                            existing = result.scalars().first()
-                            if not existing:
-                                weather = _make_weather(station.id, date_obj, day_data)
-                                db.add(weather)
-                                await db.commit()
-                                logger.info(
-                                    "[Created] %s | %s | Temp: %s",
-                                    name,
-                                    date_obj,
-                                    weather.temperature,
-                                )
-                            else:
-                                logger.info(
-                                    "[Skipped] %s | %s already exists.",
-                                    name,
-                                    date_obj,
-                                )
-                        else:
-                            logger.warning("[Missing Date] %s", name)
-                    else:
-                        logger.warning("[No Data] %s", name)
-                else:
-                    logger.warning(
-                        "[Fetch Failed] %s | Status Code: %s",
-                        name,
-                        response.status_code,
-                    )
+        # 4. Bulk Check Existing (N+1 Fix)
+        # Ambil semua data yang sudah ada untuk kombinasi stasiun dan tanggal tersebut
+        existing_result = await db.execute(
+            select(WeatherData.station_id, WeatherData.date).where(
+                WeatherData.station_id.in_(list(station_ids_to_check)),
+                WeatherData.date.in_(list(dates_to_check)),
+            )
+        )
+        existing_lookup = set(existing_result.all())  # Set berisi (station_id, date)
+
+        # 5. Filter dan Simpan (Bulk Insert)
+        for s_id, s_name, d_obj, d_data in new_records_data:
+            if (s_id, d_obj) not in existing_lookup:
+                weather = _make_weather(s_id, d_obj, d_data)
+                db.add(weather)
+                logger.info("[Created] %s | %s", s_name, d_obj)
+            else:
+                logger.info("[Skipped] %s | %s already exists.", s_name, d_obj)
+
+        # get_db_session akan melakukan commit otomatis saat keluar context manager
 
 
 async def fetch_weather_data_range(days_back: int = 3):
-    """Ambil data cuaca untuk rentang hari tertentu (backfill)."""
+    """Ambil data cuaca rentang hari tertentu secara paralel dan efisien."""
     results = []
     end_date = datetime.now(UTC).date()
     start_date = end_date - timedelta(days=days_back)
 
     async with get_db_session() as db:
-        result = await db.execute(select(WeatherStation))
-        stations = result.scalars().all()
+        # 1. Ambil semua stasiun
+        result = await db.execute(
+            select(
+                WeatherStation,
+                func.ST_Y(WeatherStation.location).label("lat"),
+                func.ST_X(WeatherStation.location).label("lon"),
+            )
+        )
+        rows = result.all()
+        if not rows:
+            return []
 
+        # 2. Parallel API Fetching
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for station in stations:
-                lat = _loc_lat(station.location)
-                lon = _loc_lon(station.location)
-                name = station.name
-
+            tasks = []
+            for row in rows:
                 url = (
-                    f"{BASE_URL}{lat},{lon}/{start_date}/{end_date}"
+                    f"{BASE_URL}{row.lat},{row.lon}/{start_date}/{end_date}"
                     f"?unitGroup=metric&key={API_KEY}&include=days"
                 )
-                response = await client.get(url)
+                tasks.append(client.get(url))
 
-                if response.status_code == HTTP_OK:
-                    data = response.json()
-                    days = data.get("days", [])
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    for day_data in days:
-                        date_str = day_data.get("datetime")
-                        if not date_str:
-                            continue
-                        date_obj = (
-                            datetime.strptime(date_str, "%Y-%m-%d")
-                            .replace(tzinfo=UTC)
-                            .date()
-                        )
+        # 3. Kumpulkan semua data yang di-fetch
+        fetched_data = []  # List of (station_id, name, date_obj, day_data)
+        all_dates = set()
+        all_station_ids = set()
 
-                        result = await db.execute(
-                            select(WeatherData).filter_by(
-                                station_id=station.id, date=date_obj
-                            )
-                        )
-                        existing = result.scalars().first()
-                        if not existing:
-                            weather = _make_weather(station.id, date_obj, day_data)
-                            db.add(weather)
-                            await db.commit()
-                            results.append(
-                                {
-                                    "station": name,
-                                    "date": str(date_obj),
-                                    "status": "Created",
-                                }
-                            )
-                        else:
-                            results.append(
-                                {
-                                    "station": name,
-                                    "date": str(date_obj),
-                                    "status": "Skipped",
-                                }
-                            )
-                else:
-                    results.append(
-                        {
-                            "station": name,
-                            "error": f"Fetch failed: {response.status_code}",
-                        }
+        for row, response in zip(rows, responses):
+            station_obj = row[0]
+            if isinstance(response, Exception) or response.status_code != HTTP_OK:
+                results.append(
+                    {"station": station_obj.name, "error": "Fetch failed or exception"}
+                )
+                continue
+
+            data = response.json()
+            days_data = data.get("days", [])
+            for d_data in days_data:
+                date_str = d_data.get("datetime")
+                if date_str:
+                    d_obj = (
+                        datetime.strptime(date_str, "%Y-%m-%d")
+                        .replace(tzinfo=UTC)
+                        .date()
                     )
+                    fetched_data.append((station_obj.id, station_obj.name, d_obj, d_data))
+                    all_dates.add(d_obj)
+                    all_station_ids.add(station_obj.id)
+
+        if not fetched_data:
+            return results
+
+        # 4. Bulk Check Existing
+        existing_result = await db.execute(
+            select(WeatherData.station_id, WeatherData.date).where(
+                WeatherData.station_id.in_(list(all_station_ids)),
+                WeatherData.date.in_(list(all_dates)),
+            )
+        )
+        existing_lookup = set(existing_result.all())
+
+        # 5. Filter dan Bulk Insert
+        for s_id, s_name, d_obj, d_data in fetched_data:
+            if (s_id, d_obj) not in existing_lookup:
+                weather = _make_weather(s_id, d_obj, d_data)
+                db.add(weather)
+                results.append({"station": s_name, "date": str(d_obj), "status": "Created"})
+            else:
+                results.append({"station": s_name, "date": str(d_obj), "status": "Skipped"})
 
     return results

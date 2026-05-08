@@ -40,6 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgeos-c1v5 \
     libproj25 \
     libpq5 \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the pre-built venv from the builder stage.
@@ -56,16 +57,19 @@ RUN useradd --no-create-home --shell /bin/false appuser
 WORKDIR /app
 COPY . .
 
-# Pre-create writable directories and hand ownership to appuser.
-RUN mkdir -p data/Himawari data/VIIRS media && \
+# Set execution permission and ensure ownership for entrypoint
+RUN chmod +x scripts/entrypoint.sh && \
+    mkdir -p data/Himawari data/VIIRS media && \
     chown -R appuser:appuser /app
 
 USER appuser
 
-EXPOSE 8000
+EXPOSE 1963
+
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
 CMD ["gunicorn", "main:app", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--bind", "0.0.0.0:8000", \
+     "--bind", "0.0.0.0:1963", \
      "--workers", "3", \
      "--timeout", "120"]

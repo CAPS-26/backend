@@ -6,7 +6,7 @@ REST API backend untuk pemrosesan data satelit Aerosol Optical Depth (AOD) dan e
 
 ```bash
 backend/
-├── config/                  # Pengaturan aplikasi (settings.py)
+├── config/                   # Pengaturan aplikasi (settings.py)
 ├── apps/
 │   ├── aod/                 # Domain satelit AOD
 │   │   ├── models.py
@@ -36,7 +36,7 @@ Prasyarat:
 - Docker 24 atau lebih baru
 - Docker Compose (plugin `docker compose` atau Docker Desktop)
 
-Setup singkat (wajib gunakan `.env` di Linux):
+Setup singkat (wajib gunakan `.env`):
 
 ```bash
 cp .env.example .env
@@ -49,7 +49,7 @@ Build dan jalankan semua service:
 docker compose up --build
 ```
 
-API akan tersedia di http://localhost:8000. Pada boot pertama, service web dapat menjalankan migrasi database otomatis.
+API akan tersedia di http://localhost:1963. Pada boot pertama, service web dapat menjalankan migrasi database otomatis.
 
 Mode detached:
 
@@ -150,59 +150,16 @@ uv run alembic upgrade head
 Jalankan server FastAPI (development):
 
 ```bash
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 1963
 ```
 
-Dokumentasi API (Swagger) tersedia di http://127.0.0.1:8000/docs
+Dokumentasi API (Scalar) tersedia di http://127.0.0.1:1963/docs
 
 Catatan operasional singkat:
 
 - Scheduler dijalankan di level aplikasi. Job dijalankan oleh APScheduler yang dibuat pada startup aplikasi.
 - Caching mendukung Redis bila dikonfigurasi, dan akan fallback ke in-memory cache bila koneksi Redis gagal.
 - Prediksi time-series menggunakan model LSTM; proyek sudah menyediakan kerangka untuk model TensorFlow (.keras). Anda dapat menaruh model file di `apps/aod/features/prediction/ml_models/` dan loader akan mencoba memuatnya. Saya juga menambahkan dukungan loader untuk model PyTorch (.pt, .pth).
-
----
-
-## Make commands (development)
-
-This repository includes a `Makefile` with convenient targets for local development. All commands are expected to run through the `uv` runner.
-
-- `make install` : synchronize or install project environment (runs `uv sync` by default).
-- `make migrate` : run migrations (`uv run alembic upgrade head`).
-- `make seed` : run database seed script (`uv run python scripts/seed.py stations`).
-- `make test` : run tests (`uv run pytest -vv`).
-- `make lint` : run linters and auto-fix with `uv run ruff` and `uv run bandit`.
-- `make format` : run `uv run ruff format` to reformat code.
-- `make dev` : run the application locally with `uv run uvicorn` (development host and reload enabled).
-
-If you prefer not to use `make`, run the equivalent commands explicitly via `uv run ...`.
-
-## Development tools and `uv` runner
-
-The `Makefile` referenced above uses a small runner called `uv` to execute commands in a consistent environment. This project expects `uv` to be installed.
-
-Install `uv` (recommended for parity with the Makefile). You can install it with `pip` or `pipx`:
-
-```bash
-# Option A: install into the active virtualenv
-pip install uv
-
-# Option B: install globally for CLI usage (recommended via pipx)
-pipx install uv
-```
-
-Notes:
-- `uv` is the standard runner for this repository to keep commands consistent across environments.
-
-## Linting rules to ignore
-
-Ruff ignores the following rules to avoid noise in this codebase:
-
-- `B008`: FastAPI dependency injection uses `Depends(...)` as a default argument.
-- `N802`: Legacy function names are preserved to avoid breaking public entrypoints.
-- `PLR2004`: Status code checks in tests are clearer as literals.
-- `S105`: Default `SECRET_KEY` is a placeholder and must be overridden via `.env`.
-- `S321`: FTP is required for the upstream Himawari source.
 
 ---
 

@@ -50,8 +50,8 @@ class AodRepository:
         return estimate
 
     async def save_pm25_polygons(self, polygons: list[PolygonDataPM25]):
-        for poly in polygons:
-            self.db.add(poly)
+        if polygons:
+            self.db.add_all(polygons)
         await self.db.commit()
 
     async def save_aod_record(self, record: AerosolOpticalDepth):

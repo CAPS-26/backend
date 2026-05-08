@@ -1,10 +1,10 @@
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DateInput(BaseModel):
-    date: date
+    date: str = Field(description="Format: DD-MM-YYYY (Contoh: 08-05-2026)")
 
 
 class WeatherDataOut(BaseModel):

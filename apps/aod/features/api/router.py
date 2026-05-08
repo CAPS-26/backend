@@ -1,6 +1,7 @@
 """API polygon AOD dan PM2.5."""
 
-from fastapi import APIRouter, Depends
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +25,16 @@ def _get_service(
     return AodApiService(repo)
 
 
+def _parse_date(date_str: str):
+    try:
+        return datetime.strptime(date_str, "%d-%m-%Y").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Format tanggal salah. Gunakan DD-MM-YYYY (Contoh: 08-05-2026)",
+        )
+
+
 @router.get(
     "/polygon/",
     summary="Ambil Data Polygon AOD Kemarin",
@@ -39,14 +50,15 @@ async def get_aod_polygon(
 @router.post(
     "/polygon/by-date/",
     summary="Ambil Data Polygon AOD Berdasarkan Tanggal",
-    description="Mengembalikan data polygon AOD berdasarkan tanggal (YYYY-MM-DD).",
+    description="Mengembalikan data polygon AOD berdasarkan tanggal (Format: DD-MM-YYYY).",
 )
 @cache(expire=86400)
 async def get_aod_polygon_by_date(
     body: DateInput,
     service: AodApiService = Depends(_get_service),
 ):
-    return await service.get_aod_polygon_by_date(body.tanggal)
+    target_date = _parse_date(body.tanggal)
+    return await service.get_aod_polygon_by_date(target_date)
 
 
 @router.get(
@@ -65,7 +77,7 @@ async def get_pm25_polygon(
     "/pm25/polygon/by-date/",
     summary="Ambil Data Polygon PM2.5 Berdasarkan Tanggal",
     description=(
-        "Mengembalikan data polygon PM2.5 estimasi berdasarkan tanggal (YYYY-MM-DD)."
+        "Mengembalikan data polygon PM2.5 estimasi berdasarkan tanggal (Format: DD-MM-YYYY)."
     ),
 )
 @cache(expire=86400)
@@ -73,4 +85,5 @@ async def get_pm25_polygon_by_date(
     body: DateInput,
     service: AodApiService = Depends(_get_service),
 ):
-    return await service.get_pm25_polygon_by_date(body.tanggal)
+    target_date = _parse_date(body.tanggal)
+    return await service.get_pm25_polygon_by_date(target_date)
