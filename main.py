@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from scalar_fastapi import Layout, SearchHotKey, get_scalar_api_reference
 
 from apps.aod.features.api.router import router as aod_router
 from apps.core.cache import init_cache
@@ -51,6 +52,8 @@ app = FastAPI(
         "Air quality monitoring: AOD satellite data & weather-based PM2.5 estimation."
     ),
     version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
     lifespan=lifespan,
 )
 
@@ -76,6 +79,14 @@ app.add_middleware(
 
 app.include_router(aod_router, prefix="/api/v1/aod", tags=["AOD"])
 app.include_router(weather_router, prefix="/api/v1/weather", tags=["Weather"])
+
+
+@app.get("/docs", include_in_schema=False)
+async def scalar_html():
+    return get_scalar_api_reference(
+        openapi_url=app.openapi_url,
+        title="PM2.5 & AOD Jakarta API",
+    )
 
 
 @app.get("/", include_in_schema=False)
