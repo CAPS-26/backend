@@ -100,7 +100,7 @@ async def fetch_weather_data():
                                     "[Created] %s | %s | Temp: %s",
                                     name,
                                     date_obj,
-                                    weather.temperature,
+                                    day_data.get("temp"),
                                 )
                             else:
                                 logger.info(
