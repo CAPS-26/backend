@@ -1,11 +1,12 @@
 """Crawl nilai ISPU PM2.5 stasiun Jakarta dari portal pemerintah DKI."""
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 
 import httpx
 from bs4 import BeautifulSoup
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from apps.database import get_db_session
 from apps.weather.models import PM25DataActual, WeatherStation
@@ -49,19 +50,46 @@ STATION_URLS = [
 
 
 async def get_ispu_pm25_now():
-    """Scrape nilai ISPU PM2.5 terkini dan simpan ke database."""
+    """Scrape nilai ISPU PM2.5 terkini dan simpan ke database secara paralel."""
     headers = {"User-Agent": "Mozilla/5.0"}
+    tanggal = datetime.now(UTC).date()
 
-    async with (
-        httpx.AsyncClient(headers=headers, timeout=30.0) as client,
-        get_db_session() as db,
-    ):
-        for tempat in STATION_URLS:
+    async with httpx.AsyncClient(headers=headers, timeout=30.0) as client:
+        # 1. Ambil data dari semua URL secara paralel
+        tasks = [client.get(t["url"]) for t in STATION_URLS]
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+    async with get_db_session() as db:
+        # 2. Ambil semua stasiun sekaligus
+        station_names = [t["nama_tempat"] for t in STATION_URLS]
+        result_stations = await db.execute(
+            select(WeatherStation).filter(
+                func.lower(WeatherStation.name).in_([n.lower() for n in station_names])
+            )
+        )
+        stations_map = {s.name.lower(): s for s in result_stations.scalars().all()}
+
+        # 3. Ambil data existing untuk tanggal hari ini sekaligus (N+1 fix)
+        station_ids = [s.id for s in stations_map.values()]
+        if station_ids:
+            result_existing = await db.execute(
+                select(PM25DataActual.station_id).where(
+                    PM25DataActual.station_id.in_(station_ids),
+                    PM25DataActual.date == tanggal,
+                )
+            )
+            existing_station_ids = set(result_existing.scalars().all())
+        else:
+            existing_station_ids = set()
+
+        # 4. Proses hasil respon
+        for tempat, response in zip(STATION_URLS, responses):
+            if isinstance(response, Exception) or response.status_code != 200:
+                logger.error("[Error] %s: Fetch failed.", tempat["nama_tempat"])
+                continue
+
             try:
-                res = await client.get(tempat["url"])
-                res.raise_for_status()
-                soup = BeautifulSoup(res.text, "html.parser")
-
+                soup = BeautifulSoup(response.text, "html.parser")
                 nilai_pm25 = None
                 for box_icon in soup.find_all("div", class_="feature-box-icon"):
                     p_tag = box_icon.find("p")
@@ -71,55 +99,31 @@ async def get_ispu_pm25_now():
                             nilai_pm25 = h5_tag.text.strip()
                             break
 
-                if nilai_pm25 is None:
-                    nilai_pm25 = 0.0
+                val_float = float(nilai_pm25) if nilai_pm25 else 0.0
+                name_lower = tempat["nama_tempat"].lower()
+                stasiun = stations_map.get(name_lower)
 
-                # Cari stasiun
-                result = await db.execute(
-                    select(WeatherStation).filter(
-                        WeatherStation.name.ilike(tempat["nama_tempat"].strip())
-                    )
-                )
-                stasiun = result.scalars().first()
-
-                if stasiun is None:
-                    logger.warning(
-                        "[Not Found] Station '%s' not in database.",
-                        tempat["nama_tempat"],
-                    )
+                if not stasiun:
+                    logger.warning("[Not Found] %s", tempat["nama_tempat"])
                     continue
 
-                tanggal = datetime.now(UTC).date()
-
-                # Cek existing
-                result = await db.execute(
-                    select(PM25DataActual).filter_by(
-                        station_id=stasiun.id, date=tanggal
-                    )
-                )
-                existing = result.scalars().first()
-
-                if existing:
+                if stasiun.id in existing_station_ids:
                     logger.info(
-                        "[Skipped] %s | %s already exists.",
-                        tempat["nama_tempat"],
-                        tanggal,
+                        "[Skipped] %s | %s already exists.", stasiun.name, tanggal
                     )
                     continue
 
-                record = PM25DataActual(
-                    station_id=stasiun.id,
-                    date=tanggal,
-                    pm25_value=float(nilai_pm25),
+                # Tambahkan record baru
+                db.add(
+                    PM25DataActual(
+                        station_id=stasiun.id,
+                        date=tanggal,
+                        pm25_value=val_float,
+                    )
                 )
-                db.add(record)
-                await db.commit()
-                logger.info(
-                    "[Saved] %s | %s | PM2.5: %s",
-                    tempat["nama_tempat"],
-                    tanggal,
-                    nilai_pm25,
-                )
+                logger.info("[Saved] %s | PM2.5: %s", stasiun.name, val_float)
+
             except Exception as e:
                 logger.error("[Error] %s: %s", tempat["nama_tempat"], e)
-                await db.rollback()
+
+        # get_db_session akan melakukan commit otomatis

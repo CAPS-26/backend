@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_db: int = 0
 
-    # Penjadwal
-    scheduler_enabled: bool = True
+    # Penjadwal (APScheduler - sekarang opsional karena ada Celery)
+    scheduler_enabled: bool = False
     scheduler_timezone: str = "Asia/Jakarta"
 
     # Basis data

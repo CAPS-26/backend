@@ -168,11 +168,12 @@ async def _process_himawari_data():  # noqa: PLR0912, PLR0915
                     await db.commit()
                     await db.refresh(raster_data)
 
+                    polygons_to_add = []
                     for _, row in clipped_gdf.iterrows():
                         geom = row.geometry
                         if geom.geom_type == "MultiPolygon":
                             for poly in geom.geoms:
-                                db.add(
+                                polygons_to_add.append(
                                     AerosolOpticalDepthPolygon(
                                         aod_id=raster_data.id,
                                         geom=f"SRID=4326;{poly.wkt}",
@@ -181,7 +182,7 @@ async def _process_himawari_data():  # noqa: PLR0912, PLR0915
                                     )
                                 )
                         else:
-                            db.add(
+                            polygons_to_add.append(
                                 AerosolOpticalDepthPolygon(
                                     aod_id=raster_data.id,
                                     geom=f"SRID=4326;{geom.wkt}",
@@ -189,6 +190,8 @@ async def _process_himawari_data():  # noqa: PLR0912, PLR0915
                                     date=raster_data.date,
                                 )
                             )
+                    if polygons_to_add:
+                        db.add_all(polygons_to_add)
                     await db.commit()
 
                     if geotiff_file_path.exists():

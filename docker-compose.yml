@@ -30,10 +30,11 @@ services:
     environment:
       DBHOST: db
       DBPORT: "5432"
-      CACHE_BACKEND: ${CACHE_BACKEND:-memory}
-      REDIS_URL: ${REDIS_URL:-}
+      CACHE_BACKEND: ${CACHE_BACKEND:-redis}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
       SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Asia/Jakarta}
+      TZ: Asia/Jakarta
       PYTHONPATH: /app
       API_KEY: ${API_KEY}
     entrypoint: ["/app/scripts/entrypoint.sh"]
@@ -54,11 +55,12 @@ services:
     environment:
       DBHOST: db
       DBPORT: "5432"
-      CACHE_BACKEND: ${CACHE_BACKEND:-memory}
-      REDIS_URL: ${REDIS_URL:-}
+      CACHE_BACKEND: ${CACHE_BACKEND:-redis}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
       SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Asia/Jakarta}
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+      TZ: Asia/Jakarta
       PYTHONPATH: /app
     ports:
       - "${API_PORT:-1963}:1963"
@@ -82,10 +84,9 @@ services:
       - backend_net
 
   redis:
+    # Redis ini bersifat internal
     image: redis:7-alpine
     restart: unless-stopped
-    profiles:
-      - cache
     command:
       - redis-server
       - --appendonly
@@ -103,6 +104,48 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    networks:
+      - backend_net
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DBHOST: db
+      DBPORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      TZ: Asia/Jakarta
+      PYTHONPATH: /app
+    command: ["celery", "-A", "apps.core.celery_app", "worker", "--loglevel=info"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - satellite_data:/app/data
+    networks:
+      - backend_net
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      TZ: Asia/Jakarta
+      PYTHONPATH: /app
+    command: ["celery", "-A", "apps.core.celery_app", "beat", "--loglevel=info"]
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - backend_net
 
