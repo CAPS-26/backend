@@ -7,30 +7,19 @@ services:
     environment:
       POSTGRES_DB: ${NAMEDB:-aodproject}
       POSTGRES_USER: ${USERDB:-aoduser}
-      POSTGRES_PASSWORD: ${PASSDB}
+      POSTGRES_PASS: ${PASSDB}
+      ALLOW_IP_RANGE: 0.0.0.0/0
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
-    command: 
-      - postgres
-      - -c
-      - log_connections=off
-      - -c
-      - log_disconnections=off
-      - -c
-      - log_min_messages=error
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${USERDB:-aoduser} -d ${NAMEDB:-aodproject}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 30s
     networks:
       - backend_net
-    deploy:
-      resources:
-        limits:
-          memory: 768M
 
   migrate:
     build:
@@ -57,10 +46,6 @@ services:
         condition: service_healthy
     networks:
       - backend_net
-    deploy:
-      resources:
-        limits:
-          memory: 1G
 
   web:
     build:
@@ -99,10 +84,6 @@ services:
       start_period: 30s
     networks:
       - backend_net
-    deploy:
-      resources:
-        limits:
-          memory: 1G
 
   redis:
     image: redis:7-alpine
@@ -157,10 +138,6 @@ services:
       - satellite_data:/app/data
     networks:
       - backend_net
-    deploy:
-      resources:
-        limits:
-          memory: 1200M
 
   celery_beat:
     build:
@@ -179,10 +156,6 @@ services:
         condition: service_healthy
     networks:
       - backend_net
-    deploy:
-      resources:
-        limits:
-          memory: 128M
 
 volumes:
   postgres_data:
