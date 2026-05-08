@@ -5,9 +5,7 @@ import os
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from geoalchemy2.shape import to_shape
-from sqlalchemy import select
-from sqlalchemy.orm import joinedload
+from sqlalchemy import func, select
 
 from apps.database import get_db_session
 from apps.weather.models import WeatherData, WeatherStation
@@ -60,16 +58,21 @@ def _make_weather(station_id, date_obj, day_data):
 async def fetch_weather_data():
     """Ambil data cuaca hari ini untuk semua stasiun."""
     async with get_db_session() as db:
-        # Gunakan joinedload untuk eager loading 'location' dan menghindari N+1 problem / lazy loading error
+        # Ambil stasiun beserta Lat/Lon langsung via PostGIS agar tidak trigger lazy load geometri
         result = await db.execute(
-            select(WeatherStation).options(joinedload(WeatherStation.location))
+            select(
+                WeatherStation,
+                func.ST_Y(WeatherStation.location).label("lat"),
+                func.ST_X(WeatherStation.location).label("lon"),
+            )
         )
-        stations = result.scalars().all()
+        rows = result.all()
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for station in stations:
-                lat = _loc_lat(station.location)
-                lon = _loc_lon(station.location)
+            for row in rows:
+                station = row[0]
+                lat = row.lat
+                lon = row.lon
                 name = station.name
 
                 url = (
@@ -131,13 +134,20 @@ async def fetch_weather_data_range(days_back: int = 3):
     start_date = end_date - timedelta(days=days_back)
 
     async with get_db_session() as db:
-        result = await db.execute(select(WeatherStation))
-        stations = result.scalars().all()
+        result = await db.execute(
+            select(
+                WeatherStation,
+                func.ST_Y(WeatherStation.location).label("lat"),
+                func.ST_X(WeatherStation.location).label("lon"),
+            )
+        )
+        rows = result.all()
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for station in stations:
-                lat = _loc_lat(station.location)
-                lon = _loc_lon(station.location)
+            for row in rows:
+                station = row[0]
+                lat = row.lat
+                lon = row.lon
                 name = station.name
 
                 url = (
