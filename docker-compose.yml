@@ -32,10 +32,12 @@ services:
       DBPORT: "5432"
       CACHE_BACKEND: ${CACHE_BACKEND:-memory}
       REDIS_URL: ${REDIS_URL:-}
-      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
       SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Asia/Jakarta}
       PYTHONPATH: /app
-    command: ["alembic", "upgrade", "head"]
+      API_KEY: ${API_KEY}
+    entrypoint: ["/app/scripts/entrypoint.sh"]
+    command: ["true"]
     depends_on:
       db:
         condition: service_healthy
@@ -68,15 +70,18 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    entrypoint: ["/app/scripts/entrypoint.sh"]
     command:
-      - sh
-      - -c
-      - >
-        gunicorn main:app
-        --worker-class uvicorn.workers.UvicornWorker
-        --bind 0.0.0.0:1963
-        --workers ${WEB_CONCURRENCY:-2}
-        --timeout 120
+      - gunicorn
+      - main:app
+      - --worker-class
+      - uvicorn.workers.UvicornWorker
+      - --bind
+      - 0.0.0.0:1963
+      - --workers
+      - ${WEB_CONCURRENCY:-2}
+      - --timeout
+      - 120
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:1963/')\" "]
       interval: 30s

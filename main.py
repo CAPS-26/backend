@@ -10,6 +10,7 @@ from scalar_fastapi import Layout, SearchHotKey, get_scalar_api_reference
 
 from apps.aod.features.api.router import router as aod_router
 from apps.core.cache import init_cache
+from apps.core.ingestion_router import router as ingestion_router
 from apps.core.scheduler import create_scheduler, register_jobs
 from apps.weather.features.api.router import router as weather_router
 from config.settings import settings
@@ -79,6 +80,7 @@ app.add_middleware(
 
 app.include_router(aod_router, prefix="/api/v1/aod", tags=["AOD"])
 app.include_router(weather_router, prefix="/api/v1/weather", tags=["Weather"])
+app.include_router(ingestion_router, prefix="/api/v1")
 
 
 @app.get("/docs", include_in_schema=False)
@@ -86,6 +88,7 @@ async def scalar_html():
     return get_scalar_api_reference(
         openapi_url=app.openapi_url,
         title="PM2.5 & AOD Jakarta API",
+        servers=[{"url": "https://capstone-be.raihanpk.com", "description": "Production server"}],
     )
 
 

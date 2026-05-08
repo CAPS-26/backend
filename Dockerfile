@@ -29,7 +29,7 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-    
+
 # Stage 2: Runtime
 FROM python:3.11-slim-bookworm AS runtime
 
@@ -56,13 +56,16 @@ RUN useradd --no-create-home --shell /bin/false appuser
 WORKDIR /app
 COPY . .
 
-# Pre-create writable directories and hand ownership to appuser.
-RUN mkdir -p data/Himawari data/VIIRS media && \
+# Set execution permission and ensure ownership for entrypoint
+RUN chmod +x scripts/entrypoint.sh && \
+    mkdir -p data/Himawari data/VIIRS media && \
     chown -R appuser:appuser /app
 
 USER appuser
 
 EXPOSE 1963
+
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
 CMD ["gunicorn", "main:app", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \

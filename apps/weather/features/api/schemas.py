@@ -1,10 +1,10 @@
-from datetime import date
+from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DateInput(BaseModel):
-    date: date
+    date: date = Field(default_factory=lambda: datetime.now().date(), example=datetime.now().strftime("%Y-%m-%d"))
 
 
 class WeatherDataOut(BaseModel):
