@@ -70,10 +70,12 @@ async def fetch_weather_data():
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             for row in rows:
-                station = row[0]
+                # Simpan data ke variabel lokal AGAR tidak trigger lazy load setelah commit
+                station_obj = row[0]
+                station_id = station_obj.id
+                name = station_obj.name
                 lat = row.lat
                 lon = row.lon
-                name = station.name
 
                 url = (
                     f"{BASE_URL}{lat},{lon}?unitGroup=metric&key={API_KEY}&include=days"
@@ -93,14 +95,16 @@ async def fetch_weather_data():
                                 .replace(tzinfo=UTC)
                                 .date()
                             )
-                            result = await db.execute(
+                            # Cek existing menggunakan ID yang sudah disimpan di variabel lokal
+                            # untuk menghindari akses ke station_obj.id yang mungkin sudah expired
+                            result_existing = await db.execute(
                                 select(WeatherData).filter_by(
-                                    station_id=station.id, date=date_obj
+                                    station_id=station_id, date=date_obj
                                 )
                             )
-                            existing = result.scalars().first()
+                            existing = result_existing.scalars().first()
                             if not existing:
-                                weather = _make_weather(station.id, date_obj, day_data)
+                                weather = _make_weather(station_id, date_obj, day_data)
                                 db.add(weather)
                                 await db.commit()
                                 logger.info(
