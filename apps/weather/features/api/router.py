@@ -24,6 +24,12 @@ def _get_repository(
     return WeatherRepository(db)
 
 
+def _get_service(
+    repo: WeatherRepository = Depends(_get_repository),
+) -> WeatherApiService:
+    return WeatherApiService(repo)
+
+
 def _parse_date(date_str: str):
     try:
         return datetime.strptime(date_str, "%d-%m-%Y").date()
