@@ -62,10 +62,10 @@ RUN mkdir -p data/Himawari data/VIIRS media && \
 
 USER appuser
 
-EXPOSE 8000
+EXPOSE 1963
 
 CMD ["gunicorn", "main:app", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--bind", "0.0.0.0:8000", \
+     "--bind", "0.0.0.0:1963", \
      "--workers", "3", \
      "--timeout", "120"]

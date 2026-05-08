@@ -49,7 +49,7 @@ Build dan jalankan semua service:
 docker compose up --build
 ```
 
-API akan tersedia di http://localhost:8000. Pada boot pertama, service web dapat menjalankan migrasi database otomatis.
+API akan tersedia di http://localhost:1963. Pada boot pertama, service web dapat menjalankan migrasi database otomatis.
 
 Mode detached:
 
@@ -150,10 +150,10 @@ uv run alembic upgrade head
 Jalankan server FastAPI (development):
 
 ```bash
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 1963
 ```
 
-Dokumentasi API (Scalar) tersedia di http://127.0.0.1:8000/docs
+Dokumentasi API (Scalar) tersedia di http://127.0.0.1:1963/docs
 
 Catatan operasional singkat:
 
