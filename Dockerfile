@@ -29,7 +29,7 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-
+    
 # Stage 2: Runtime
 FROM python:3.11-slim-bookworm AS runtime
 
