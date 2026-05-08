@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class DateInput(BaseModel):
-    tanggal: date = Field(description="Format: DD-MM-YYYY (Contoh: 08-05-2026)")
+    tanggal: str = Field(description="Format: DD-MM-YYYY (Contoh: 08-05-2026)")
 
 
 class GeoJSONGeometry(BaseModel):

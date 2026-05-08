@@ -1,6 +1,7 @@
 """API data cuaca dan PM2.5 per stasiun."""
 
-from fastapi import APIRouter, Depends
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,10 +24,14 @@ def _get_repository(
     return WeatherRepository(db)
 
 
-def _get_service(
-    repo: WeatherRepository = Depends(_get_repository),
-) -> WeatherApiService:
-    return WeatherApiService(repo)
+def _parse_date(date_str: str):
+    try:
+        return datetime.strptime(date_str, "%d-%m-%Y").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Format tanggal salah. Gunakan DD-MM-YYYY (Contoh: 08-05-2026)",
+        )
 
 
 @router.get(
@@ -51,7 +56,8 @@ async def get_weather_by_date(
     body: DateInput,
     service: WeatherApiService = Depends(_get_service),
 ) -> list[WeatherDataOut]:
-    return await service.get_weather_by_date(body.date)
+    target_date = _parse_date(body.date)
+    return await service.get_weather_by_date(target_date)
 
 
 @router.get(
@@ -75,7 +81,8 @@ async def get_pm25_actual_by_date(
     body: DateInput,
     service: WeatherApiService = Depends(_get_service),
 ) -> list[PM25ActualOut]:
-    return await service.get_pm25_actual_by_date(body.date)
+    target_date = _parse_date(body.date)
+    return await service.get_pm25_actual_by_date(target_date)
 
 
 @router.get(
@@ -99,4 +106,5 @@ async def get_pm25_prediction_by_date(
     body: DateInput,
     service: WeatherApiService = Depends(_get_service),
 ) -> list[PM25PredictionOut]:
-    return await service.get_pm25_prediction_by_date(body.date)
+    target_date = _parse_date(body.date)
+    return await service.get_pm25_prediction_by_date(target_date)
