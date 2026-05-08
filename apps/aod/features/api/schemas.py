@@ -1,11 +1,11 @@
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
 class DateInput(BaseModel):
-    tanggal: date = Field(default_factory=lambda: datetime.now().date(), example=datetime.now().strftime("%Y-%m-%d"))
+    tanggal: date = Field(description="Format: DD-MM-YYYY (Contoh: 08-05-2026)")
 
 
 class GeoJSONGeometry(BaseModel):

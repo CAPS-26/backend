@@ -44,7 +44,7 @@ async def get_latest_weather(
 @router.post(
     "/weather/by-date/",
     summary="Ambil Data Cuaca Berdasarkan Tanggal",
-    description="Mengembalikan data cuaca berdasarkan tanggal (YYYY-MM-DD).",
+    description="Mengembalikan data cuaca berdasarkan tanggal (Format: DD-MM-YYYY).",
 )
 @cache(expire=86400)
 async def get_weather_by_date(
@@ -68,6 +68,7 @@ async def get_latest_pm25_actual(
 @router.post(
     "/pm25/actual/by-date/",
     summary="Ambil Data PM2.5 Aktual Berdasarkan Tanggal",
+    description="Mengembalikan data PM2.5 aktual berdasarkan tanggal (Format: DD-MM-YYYY).",
 )
 @cache(expire=86400)
 async def get_pm25_actual_by_date(
@@ -91,6 +92,7 @@ async def get_latest_pm25_prediction(
 @router.post(
     "/pm25/prediction/by-date/",
     summary="Ambil Data PM2.5 Prediksi Berdasarkan Tanggal",
+    description="Mengembalikan data PM2.5 prediksi berdasarkan tanggal (Format: DD-MM-YYYY).",
 )
 @cache(expire=86400)
 async def get_pm25_prediction_by_date(

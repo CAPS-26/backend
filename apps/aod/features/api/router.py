@@ -39,7 +39,7 @@ async def get_aod_polygon(
 @router.post(
     "/polygon/by-date/",
     summary="Ambil Data Polygon AOD Berdasarkan Tanggal",
-    description="Mengembalikan data polygon AOD berdasarkan tanggal (YYYY-MM-DD).",
+    description="Mengembalikan data polygon AOD berdasarkan tanggal (Format: DD-MM-YYYY).",
 )
 @cache(expire=86400)
 async def get_aod_polygon_by_date(
@@ -65,7 +65,7 @@ async def get_pm25_polygon(
     "/pm25/polygon/by-date/",
     summary="Ambil Data Polygon PM2.5 Berdasarkan Tanggal",
     description=(
-        "Mengembalikan data polygon PM2.5 estimasi berdasarkan tanggal (YYYY-MM-DD)."
+        "Mengembalikan data polygon PM2.5 estimasi berdasarkan tanggal (Format: DD-MM-YYYY)."
     ),
 )
 @cache(expire=86400)
