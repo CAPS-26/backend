@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from geoalchemy2.shape import to_shape
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from apps.database import get_db_session
 from apps.weather.models import WeatherData, WeatherStation
@@ -59,7 +60,10 @@ def _make_weather(station_id, date_obj, day_data):
 async def fetch_weather_data():
     """Ambil data cuaca hari ini untuk semua stasiun."""
     async with get_db_session() as db:
-        result = await db.execute(select(WeatherStation))
+        # Gunakan joinedload untuk eager loading 'location' dan menghindari N+1 problem / lazy loading error
+        result = await db.execute(
+            select(WeatherStation).options(joinedload(WeatherStation.location))
+        )
         stations = result.scalars().all()
 
         async with httpx.AsyncClient(timeout=30.0) as client:
