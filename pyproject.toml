@@ -12,7 +12,7 @@ dependencies = [
     "gunicorn>=23.0.0",
     # Database
     "sqlalchemy>=2.0.0",
-    "geoalchemy2>=0.15.0",
+    "geoalchemy2>=0.17.0,!=0.18.3",
     "alembic>=1.14.0",
     # Config
     "pydantic>=2.0.0",
