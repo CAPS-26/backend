@@ -25,12 +25,13 @@ class GeoJSONFeatureCollection(BaseModel):
 
 
 class JobStatusOut(BaseModel):
+    model_config = {"arbitrary_types_allowed": True}
     job_id: str
     status: str
     enqueue_time: datetime | None = None
     start_time: datetime | None = None
     finish_time: datetime | None = None
-    result: Any = None
+    result: str | None = None
 
 
 class PredictionTriggerOut(BaseModel):

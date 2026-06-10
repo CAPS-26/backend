@@ -20,13 +20,21 @@ async def get_job_status(job_id: str, request: Request) -> JobStatusOut:
     elif not result_info.success:
         status = "failed"
 
+    result_str = None
+    if result_info is not None:
+        try:
+            import json
+            result_str = json.dumps(result_info.result, default=str)[:1000]
+        except Exception:
+            result_str = str(result_info.result)[:1000] if result_info.result else None
+
     return JobStatusOut(
         job_id=job_id,
         status=status,
         enqueue_time=job_info.enqueue_time,
         start_time=result_info.start_time if result_info else None,
         finish_time=result_info.finish_time if result_info else None,
-        result=result_info.result if result_info else None,
+        result=result_str,
     )
 
 

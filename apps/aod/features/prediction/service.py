@@ -132,6 +132,7 @@ async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
             continue
 
         for col in FEATURE_COLUMNS:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
             df[col] = df[col].interpolate(method="linear")
         df = df.dropna()
 
