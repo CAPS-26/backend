@@ -1,28 +1,24 @@
-"""Titik masuk aplikasi FastAPI."""
-
 import logging
 import time
 from contextlib import asynccontextmanager
 
+from arq import create_pool
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from scalar_fastapi import Layout, SearchHotKey, get_scalar_api_reference
 
 from apps.aod.features.api.router import router as aod_router
+from apps.core.arq_app import _build_redis
 from apps.core.cache import init_cache
 from apps.core.ingestion_router import router as ingestion_router
-from apps.core.scheduler import create_scheduler, register_jobs
 from apps.weather.features.api.router import router as weather_router
 from config.settings import settings
 
-# Pengaturan logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-# Siklus hidup aplikasi
 
 
 @asynccontextmanager
@@ -30,22 +26,15 @@ async def lifespan(app: FastAPI):
     cache_backend = await init_cache()
     logger.info("Cache initialized with %s backend.", cache_backend)
 
-    scheduler = create_scheduler()
-    app.state.scheduler = scheduler
-    if settings.scheduler_enabled:
-        register_jobs(scheduler)
-        scheduler.start()
-        logger.info("Scheduler started.")
-    else:
-        logger.info("Scheduler disabled via env.")
+    arq_pool = await create_pool(_build_redis())
+    app.state.arq_pool = arq_pool
+    logger.info("Arq pool connected.")
 
     yield
-    if scheduler.running:
-        scheduler.shutdown(wait=False)
-        logger.info("Scheduler shut down.")
 
+    await arq_pool.close()
+    logger.info("Arq pool closed.")
 
-# Pembuat aplikasi
 
 app = FastAPI(
     title="PM2.5 & AOD Jakarta API",
@@ -59,14 +48,13 @@ app = FastAPI(
 )
 
 
-# Middleware: Pencatatan waktu permintaan
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.perf_counter()
     response = await call_next(request)
     process_time = time.perf_counter() - start_time
     response.headers["X-Process-Time"] = str(process_time)
-    logger.info(f"{request.method} {request.url.path} - {process_time:.4f}s")
+    logger.info("%s %s - %.4fs", request.method, request.url.path, process_time)
     return response
 
 

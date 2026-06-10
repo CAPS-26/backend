@@ -23,8 +23,12 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_db: int = 0
 
-    # Penjadwal (APScheduler - sekarang opsional karena ada Celery)
-    scheduler_enabled: bool = False
+    # Arq worker settings
+    arq_max_jobs: int = 10
+    arq_job_timeout: int = 3600
+    arq_keep_result: int = 3600
+
+    # Timezone
     scheduler_timezone: str = "Asia/Jakarta"
 
     # Basis data

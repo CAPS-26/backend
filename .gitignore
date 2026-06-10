@@ -223,3 +223,19 @@ __marimo__/
 Aod_data/model/Estimate/best_model.pkl
 Aod_data/aod-file/Himawari/*
 Aod_data/aod-file/VIIRS/*
+.DS_Store
+**/.DS_Store
+
+# Runtime data (bind-mounted, NOT inside container)
+data/Himawari/*.nc
+data/VIIRS/*.nc
+!data/Himawari/.gitkeep
+!data/VIIRS/.gitkeep
+media/*
+!media/.gitkeep
+deploy/postgres_data/*
+!deploy/postgres_data/.gitkeep
+deploy/redis_data/*
+!deploy/redis_data/.gitkeep
+deploy/seed_data.sql
+!deploy/seed_data.sql.gz

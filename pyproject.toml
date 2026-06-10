@@ -40,7 +40,8 @@ dependencies = [
     "asyncpg>=0.31.0",
     "fastapi-cache2[redis]>=0.2.2",
     "redis>=4.6.0",
-    "celery>=5.4.0",
+    "arq>=0.26.0",
+    "greenlet>=3.3.2",
 ]
 
 [dependency-groups]

@@ -10,7 +10,7 @@ services:
       POSTGRES_PASS: ${PASSDB}
       ALLOW_IP_RANGE: 0.0.0.0/0
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres_data:/var/lib/postgresql/data
       - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${USERDB:-aoduser} -d ${NAMEDB:-aodproject}"]
@@ -33,7 +33,6 @@ services:
       DBPORT: "5432"
       CACHE_BACKEND: ${CACHE_BACKEND:-redis}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
       SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Asia/Jakarta}
       TZ: Asia/Jakarta
       PYTHONPATH: /app
@@ -59,7 +58,6 @@ services:
       DBPORT: "5432"
       CACHE_BACKEND: ${CACHE_BACKEND:-redis}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
       SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-Asia/Jakarta}
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
       TZ: Asia/Jakarta
@@ -67,8 +65,8 @@ services:
     ports:
       - "${API_PORT:-1963}:1963"
     volumes:
-      - media_data:/app/media
-      - satellite_data:/app/data
+      - ./media:/app/media
+      - ./data:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -99,7 +97,7 @@ services:
       - --loglevel
       - warning
     volumes:
-      - redis_data:/data
+      - ./deploy/redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -113,7 +111,7 @@ services:
         limits:
           memory: 384M
 
-  celery_worker:
+  arq_worker:
     build:
       context: .
       dockerfile: Dockerfile
@@ -126,7 +124,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       TZ: Asia/Jakarta
       PYTHONPATH: /app
-    command: ["celery", "-A", "apps.core.celery_app", "worker", "--loglevel=info", "--concurrency=1"]
+    command: ["arq", "apps.core.arq_app.WorkerSettings"]
     depends_on:
       db:
         condition: service_healthy
@@ -135,33 +133,9 @@ services:
       migrate:
         condition: service_completed_successfully
     volumes:
-      - satellite_data:/app/data
+      - ./data:/app/data
     networks:
       - backend_net
-
-  celery_beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      REDIS_URL: redis://redis:6379/0
-      TZ: Asia/Jakarta
-      PYTHONPATH: /app
-    command: ["celery", "-A", "apps.core.celery_app", "beat", "--loglevel=info"]
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - backend_net
-
-volumes:
-  postgres_data:
-  media_data:
-  satellite_data:
-  redis_data:
 
 networks:
   backend_net:
