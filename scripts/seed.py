@@ -19,15 +19,6 @@ from apps.weather.features.ingestion.weather_fetcher import (  # noqa: E402
 )
 from apps.weather.models import WeatherStation  # noqa: E402
 
-#   Nama Stasiun      Lokasi
-#   us_embassy_1/2    US Embassy, Jl. Medan Merdeka Selatan 3-5 — Jakarta Pusat
-#   jakarta_gbk       Gelora Bung Karno (Senayan) — Jakarta Selatan
-#   bundaran_hi       DKI-1 Bundaran Hotel Indonesia — Jakarta Pusat
-#   kelapa_gading     DKI-2 Kelapa Gading — Jakarta Utara
-#   jagakarsa         DKI-3 Jagakarsa — Jakarta Selatan
-#   lubang_buaya      DKI-4 Lubang Buaya — Jakarta Timur
-#   kebun_jeruk       DKI-5 Kebun Jeruk — Jakarta Barat
-# ---------------------------------------------------------------------------
 STATIONS = [
     # nama               lon         lat
     ("us_embassy_1", 106.8279877, -6.1811056),
