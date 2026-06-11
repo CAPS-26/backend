@@ -90,10 +90,14 @@ class WeatherApiService:
                 status_code=404,
                 detail=f"Tidak ada data PM2.5 prediksi untuk tanggal {today}.",
             )
+        stations = await self.repository.get_station_map()
         return [
             {
                 "id": row.id,
                 "station_id": row.station_id,
+                "station_name": stations.get(row.station_id, "unknown"),
+                "latitude": 0.0,
+                "longitude": 0.0,
                 "date": row.date,
                 "pm25_value": row.pm25_value,
             }
@@ -107,10 +111,14 @@ class WeatherApiService:
                 status_code=404,
                 detail=f"Tidak ada data PM2.5 prediksi untuk tanggal {target_date}.",
             )
+        stations = await self.repository.get_station_map()
         return [
             {
                 "id": row.id,
                 "station_id": row.station_id,
+                "station_name": stations.get(row.station_id, "unknown"),
+                "latitude": 0.0,
+                "longitude": 0.0,
                 "date": row.date,
                 "pm25_value": row.pm25_value,
             }

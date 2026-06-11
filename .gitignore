@@ -220,9 +220,6 @@ __marimo__/
 .streamlit/secrets.toml
 
 # System Files
-Aod_data/model/Estimate/best_model.pkl
-Aod_data/aod-file/Himawari/*
-Aod_data/aod-file/VIIRS/*
 .DS_Store
 **/.DS_Store
 

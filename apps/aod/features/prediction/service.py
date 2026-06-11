@@ -58,7 +58,7 @@ async def predict_pm25_for_all_stations():
 
 async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
     end_date = datetime.now(tz=UTC).date()
-    yesterday = end_date - timedelta(days=10)
+    yesterday = end_date - timedelta(days=1)
     start_date = yesterday - timedelta(days=SEQUENCE_LENGTH)
 
     result = await db.execute(select(WeatherStation))

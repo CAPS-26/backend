@@ -80,3 +80,7 @@ class WeatherRepository:
     async def save_pm25_prediction(self, record: PM25DataPrediction):
         self.db.add(record)
         await self.db.commit()
+
+    async def get_station_map(self) -> dict[int, str]:
+        result = await self.db.execute(select(WeatherStation))
+        return {s.id: s.name for s in result.scalars().all()}
