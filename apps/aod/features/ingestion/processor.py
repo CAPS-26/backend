@@ -15,7 +15,7 @@ from sqlalchemy import select
 from apps.aod.models import AerosolOpticalDepth, AerosolOpticalDepthPolygon, Satellite
 from apps.database import get_db_session
 
-# Root proyek (4 level ke atas dari file ini)
+# Root proyek (5 level ke atas: ingestion→features→aod→apps→root)
 _BASE_DIR = Path(__file__).resolve().parents[4]
 logger = logging.getLogger(__name__)
 
