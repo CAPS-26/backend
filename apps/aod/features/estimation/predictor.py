@@ -1,37 +1,24 @@
-"""Muat model Random Forest dan prediksi PM2.5 dari vektor fitur."""
+"""Muat model ExtraTrees spatial PM2.5 dan prediksi dari vektor fitur."""
 
 import logging
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Lokasi model yang telah dilatih
-_MODEL_PATH = Path(__file__).resolve().parent / "ml_models" / "best_model.pkl"
+_MODEL_DIR = Path(__file__).resolve().parent / "ml_models"
+_MODEL_PATH = _MODEL_DIR / "spatial_pm25_etr.pkl"
 
 FEATURE_COLUMNS = [
-    "AOD",
-    "tempmax",
-    "tempmin",
-    "temp",
-    "feelslikemax",
-    "feelslikemin",
-    "feelslike",
-    "dew",
-    "humidity",
-    "precip",
-    "precipcover",
-    "windgust",
-    "windspeed",
-    "winddir",
-    "sealevelpressure",
-    "cloudcover",
-    "visibility",
-    "solarradiation",
-    "solarenergy",
-    "uvindex",
+    "latitude", "longitude",
+    "temperature_2m", "apparent_temperature", "relative_humidity_2m",
+    "dew_point_2m", "precipitation", "rain", "surface_pressure",
+    "cloud_cover_total", "u_wind", "v_wind", "jam", "bulan",
+    "hari_dalam_minggu", "is_weekend", "AOD",
+    "v_wind_lag1", "u_wind_lag1", "temp_lag1", "rh_lag1",
 ]
 
 
@@ -40,7 +27,7 @@ def predict_model(filename: str) -> pd.DataFrame:
     model = joblib.load(_MODEL_PATH)
     df = pd.read_csv(filename)
     x_pred = df[FEATURE_COLUMNS]
-    df["PM2.5"] = model.predict(x_pred)
+    df["PM2.5"] = np.clip(model.predict(x_pred), 0, 500)
     output_df = df[["aod_latitude", "aod_longitude", "PM2.5"]]
     logger.debug("Prediction output rows: %s", len(output_df))
     return output_df

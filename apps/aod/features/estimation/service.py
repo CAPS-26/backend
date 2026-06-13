@@ -112,33 +112,37 @@ async def _run_estimation(db: AsyncSession):
             weather_data = nearest["weather_data"]
             w_pt_x, w_pt_y = nearest["location_x"], nearest["location_y"]
 
+            aod_dt = aod_date
+            jam_val = 12 if not hasattr(aod_date, 'hour') else getattr(aod_date, 'hour', 12)
+            bulan_val = aod_date.month if hasattr(aod_date, 'month') else 6
+            hari_val = aod_date.weekday() if hasattr(aod_date, 'weekday') else 3
+            weekend_val = 1 if hari_val >= 5 else 0
+
             merged_rows.append(
                 {
-                    "datetime": aod_date,
                     "aod_longitude": aod_lon,
                     "aod_latitude": aod_lat,
-                    "station_longitude": w_pt_x,
-                    "station_latitude": w_pt_y,
+                    "latitude": aod_lat,
+                    "longitude": aod_lon,
                     "AOD": aod_val,
-                    "tempmax": weather_data.temp_max,
-                    "tempmin": weather_data.temp_min,
-                    "temp": weather_data.temperature,
-                    "feelslikemax": weather_data.feels_like_max,
-                    "feelslikemin": weather_data.feels_like_min,
-                    "feelslike": weather_data.feels_like,
-                    "dew": weather_data.dew_point,
-                    "humidity": weather_data.humidity,
-                    "precip": weather_data.precipitation,
-                    "precipcover": weather_data.precip_cover,
-                    "windgust": weather_data.wind_gust,
-                    "windspeed": weather_data.wind_speed,
-                    "winddir": weather_data.wind_dir,
-                    "sealevelpressure": weather_data.sea_level_pressure,
-                    "cloudcover": weather_data.cloud_cover,
-                    "visibility": weather_data.visibility,
-                    "solarradiation": weather_data.solar_radiation,
-                    "solarenergy": weather_data.solar_energy,
-                    "uvindex": weather_data.uv_index,
+                    "temperature_2m": weather_data.temperature,
+                    "apparent_temperature": weather_data.feels_like or weather_data.temperature,
+                    "relative_humidity_2m": weather_data.humidity,
+                    "dew_point_2m": weather_data.dew_point,
+                    "precipitation": weather_data.precipitation,
+                    "rain": 1.0 if weather_data.precipitation and weather_data.precipitation > 0 else 0.0,
+                    "surface_pressure": weather_data.sea_level_pressure or weather_data.barometric_pressure or 1013.0,
+                    "cloud_cover_total": weather_data.cloud_cover or 0.0,
+                    "u_wind": weather_data.wind_speed or 0.0,
+                    "v_wind": weather_data.wind_dir or 0.0,
+                    "jam": jam_val,
+                    "bulan": bulan_val,
+                    "hari_dalam_minggu": hari_val,
+                    "is_weekend": weekend_val,
+                    "v_wind_lag1": weather_data.wind_dir or 0.0,
+                    "u_wind_lag1": weather_data.wind_speed or 0.0,
+                    "temp_lag1": weather_data.temperature or 25.0,
+                    "rh_lag1": weather_data.humidity or 70.0,
                 }
             )
 
