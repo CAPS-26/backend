@@ -107,3 +107,31 @@ async def aod_reset_direct():
             added += 1
         await db.commit()
         return {"status": "success", "message": f"Seeded {added} AOD dates", "dates": f"{start} to {today}"}
+
+
+@router.post("/aod-polygon/generate", summary="Generate AOD polygons from grid data (Langsung)")
+async def aod_polygon_generate():
+    from apps.database import get_db_session
+    from apps.aod.models import AerosolOpticalDepth, AerosolOpticalDepthPolygon
+    from sqlalchemy import select as _select, delete as _delete
+
+    RES = 0.025
+    async with get_db_session() as db:
+        r = await db.execute(_select(AerosolOpticalDepth).order_by(AerosolOpticalDepth.date))
+        records = r.scalars().all()
+        total = 0
+        for record in records:
+            await db.execute(_delete(AerosolOpticalDepthPolygon).where(
+                AerosolOpticalDepthPolygon.date == record.date))
+            for entry in record.data:
+                lat, lon, val = entry["latitude"], entry["longitude"], entry["aod_values"]
+                poly = (
+                    f"SRID=4326;POLYGON(({lon-RES} {lat-RES}, {lon+RES} {lat-RES}, "
+                    f"{lon+RES} {lat+RES}, {lon-RES} {lat+RES}, {lon-RES} {lat-RES}))"
+                )
+                db.add(AerosolOpticalDepthPolygon(
+                    aod_id=record.id, geom=poly, aod_value=float(val), date=record.date,
+                ))
+                total += 1
+        await db.commit()
+        return {"status": "success", "message": f"Generated {total} polygons for {len(records)} dates"}
