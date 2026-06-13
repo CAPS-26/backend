@@ -52,17 +52,7 @@ async def fill_aod_gap():
     if not AOD_JSON.exists():
         return
 
-    async with get_db_session() as db:
-        r = await db.execute(
-            select(func.count(func.distinct(AerosolOpticalDepth.date)))
-            .select_from(AerosolOpticalDepth)
-        )
-        distinct_dates = r.scalar()
-        if distinct_dates >= 10:
-            log.info("AOD has %d distinct dates, no gap to fill.", distinct_dates)
-            return
-
-    log.info("AOD gap detected (only %d distinct dates). Seeding from JSON...", distinct_dates)
+    log.info("Seeding AOD data from JSON (asyncpg COPY has JSONB issues)...")
     with open(AOD_JSON) as f:
         entries = json.load(f)
 
@@ -72,7 +62,7 @@ async def fill_aod_gap():
         sat_id = existing.satellite_id if existing else 1
 
         today = date.today()
-        start = today - timedelta(days=len(entries))
+        start = today - timedelta(days=len(entries) - 1)
         added = 0
         for i, entry in enumerate(entries):
             d = start + timedelta(days=i)
@@ -82,14 +72,18 @@ async def fill_aod_gap():
                 select(AerosolOpticalDepth).where(AerosolOpticalDepth.date == d)
             )
             if ex.scalars().first():
-                continue
-            db.add(AerosolOpticalDepth(
-                satellite_id=sat_id, date=d, data=entry["data"],
-            ))
-            added += 1
+                # Update existing row (asyncpg restore may have empty data)
+                row = ex.scalars().first()
+                row.data = entry["data"]
+                added += 1
+            else:
+                db.add(AerosolOpticalDepth(
+                    satellite_id=sat_id, date=d, data=entry["data"],
+                ))
+                added += 1
         await db.commit()
-        log.info("AOD gap filled: %d new dates (%s to %s)", added,
-                 (start + timedelta(days=0)).isoformat(), today.isoformat())
+        log.info("AOD seeded from JSON: %d dates (%s to %s)", added,
+                 start.isoformat(), today.isoformat())
 
 
 async def main():
