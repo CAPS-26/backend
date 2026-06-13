@@ -115,7 +115,7 @@ async def aod_polygon_generate():
     from apps.aod.models import AerosolOpticalDepth, AerosolOpticalDepthPolygon
     from sqlalchemy import select as _select, delete as _delete
 
-    RES = 0.0125
+    RES = 0.005
     async with get_db_session() as db:
         r = await db.execute(_select(AerosolOpticalDepth).order_by(AerosolOpticalDepth.date))
         records = r.scalars().all()
@@ -123,27 +123,18 @@ async def aod_polygon_generate():
         for record in records:
             await db.execute(_delete(AerosolOpticalDepthPolygon).where(
                 AerosolOpticalDepthPolygon.date == record.date))
-            points = [(e["latitude"], e["longitude"], float(e["aod_values"])) for e in record.data]
-            lat_min = min(p[0] for p in points) - 0.05
-            lat_max = max(p[0] for p in points) + 0.05
-            lon_min = min(p[1] for p in points) - 0.05
-            lon_max = max(p[1] for p in points) + 0.05
-            lat = lat_min
-            while lat <= lat_max:
-                lon = lon_min
-                while lon <= lon_max:
-                    val = sum(p[2] / (0.01 + abs(p[0]-lat) + abs(p[1]-lon)) for p in points)
-                    val = val / sum(1/(0.01 + abs(p[0]-lat) + abs(p[1]-lon)) for p in points)
-                    poly = (
-                        f"SRID=4326;POLYGON(({lon-RES} {lat-RES}, {lon+RES} {lat-RES}, "
-                        f"{lon+RES} {lat+RES}, {lon-RES} {lat+RES}, {lon-RES} {lat-RES}))"
-                    )
-                    db.add(AerosolOpticalDepthPolygon(
-                        aod_id=record.id, geom=poly, aod_value=round(val, 4), date=record.date,
-                    ))
-                    total += 1
-                    lon += RES * 2
-                lat += RES * 2
+            for entry in record.data:
+                lat, lon, val = entry["latitude"], entry["longitude"], entry["aod_values"]
+                if val is None or val <= 0:
+                    continue
+                poly = (
+                    f"SRID=4326;POLYGON(({lon-RES} {lat-RES}, {lon+RES} {lat-RES}, "
+                    f"{lon+RES} {lat+RES}, {lon-RES} {lat+RES}, {lon-RES} {lat-RES}))"
+                )
+                db.add(AerosolOpticalDepthPolygon(
+                    aod_id=record.id, geom=poly, aod_value=float(val), date=record.date,
+                ))
+                total += 1
         await db.commit()
         return {"status": "success", "message": f"Generated {total} polygons for {len(records)} dates"}
 
