@@ -9,6 +9,7 @@ from apps.core.tasks import (
     task_fetch_himawari,
     task_fetch_weather,
     task_predict_pm25_all,
+    task_reset_aod,
 )
 from config.settings import settings
 
@@ -36,6 +37,7 @@ class WorkerSettings:
         task_crawl_pm25,
         task_estimate_pm25,
         task_predict_pm25_all,
+        task_reset_aod,
     ]
 
     cron_jobs = [

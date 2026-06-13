@@ -10,6 +10,15 @@ from apps.weather.features.ingestion.weather_fetcher import fetch_weather_data
 logger = logging.getLogger(__name__)
 
 
+async def task_reset_aod(ctx: dict[str, Any]) -> None:
+    logger.info("Starting AOD reset from JSON (job %s)...", ctx.get("job_id"))
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from scripts.reset_aod import main as reset_aod_main
+    await reset_aod_main()
+
+
 async def task_fetch_weather(ctx: dict[str, Any]) -> None:
     logger.info("Starting weather fetch task (job %s)...", ctx.get("job_id"))
     await fetch_weather_data()

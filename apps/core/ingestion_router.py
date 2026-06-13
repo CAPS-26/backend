@@ -66,3 +66,9 @@ async def trigger_pm25_estimation(request: Request):
 async def trigger_pm25_prediction(request: Request):
     job = await request.app.state.arq_pool.enqueue_job("task_predict_pm25_all")
     return {"status": "success", "message": "PM2.5 LSTM prediction task queued", "job_id": job.job_id}
+
+
+@router.post("/aod-reset/trigger", summary="Reset & Re-seed AOD dari JSON (Background)")
+async def trigger_aod_reset(request: Request):
+    job = await request.app.state.arq_pool.enqueue_job("task_reset_aod")
+    return {"status": "success", "message": "AOD reset from JSON queued", "job_id": job.job_id}
