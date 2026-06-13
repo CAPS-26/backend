@@ -71,9 +71,8 @@ async def fill_aod_gap():
             ex = await db.execute(
                 select(AerosolOpticalDepth).where(AerosolOpticalDepth.date == d)
             )
-            if ex.scalars().first():
-                # Update existing row (asyncpg restore may have empty data)
-                row = ex.scalars().first()
+            row = ex.scalars().first()
+            if row:
                 row.data = entry["data"]
                 added += 1
             else:
