@@ -31,5 +31,8 @@ class PM25ActualOut(BaseModel):
 class PM25PredictionOut(BaseModel):
     id: int
     station_id: int
+    station_name: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     date: date
     pm25_value: float | None
