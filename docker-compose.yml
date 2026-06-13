@@ -87,11 +87,16 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: redis-server --save "" --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ./deploy/redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    networks:
+      - backend_net
       start_period: 15s
     networks:
       - backend_net
