@@ -73,14 +73,13 @@ async def fetch_weather_data():
         if not rows:
             return
 
-        # 2. Parallel API Fetching menggunakan asyncio.gather
+        # Sequential fetch with delay to avoid Visual Crossing rate limit
         async with httpx.AsyncClient(timeout=30.0) as client:
-            tasks = []
+            responses = []
             for row in rows:
                 url = f"{BASE_URL}{row.lat},{row.lon}?unitGroup=metric&key={API_KEY}&include=days"
-                tasks.append(client.get(url))
-
-            responses = await asyncio.gather(*tasks, return_exceptions=True)
+                responses.append(await client.get(url))
+                await asyncio.sleep(1.0)  # avoid rate limiting
 
         # 3. Kumpulkan data hasil fetch untuk diproses
         new_records_data = []  # List of (station_id, name, date_obj, day_data)
