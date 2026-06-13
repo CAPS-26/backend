@@ -26,8 +26,7 @@ def predict_model(filename: str) -> pd.DataFrame:
     """Baca CSV, jalankan model estimasi PM2.5, dan kembalikan DataFrame."""
     model = joblib.load(_MODEL_PATH)
     df = pd.read_csv(filename)
-    x_pred = df[FEATURE_COLUMNS]
-    df["PM2.5"] = np.clip(model.predict(x_pred), 0, 500)
+    df["PM2.5"] = np.clip(model.predict(df[FEATURE_COLUMNS].values), 0, 500)
     output_df = df[["aod_latitude", "aod_longitude", "PM2.5"]]
     logger.debug("Prediction output rows: %s", len(output_df))
     return output_df

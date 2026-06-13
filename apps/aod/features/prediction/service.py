@@ -145,7 +145,7 @@ async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
             continue
 
         scaler = MinMaxScaler()
-        scaler.fit(df[FEATURE_COLUMNS])
+        scaler.fit(df[FEATURE_COLUMNS].values)
 
         sequence_raw = df[FEATURE_COLUMNS].iloc[-SEQUENCE_LENGTH:].values
         sequence_scaled = scaler.transform(sequence_raw)
