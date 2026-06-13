@@ -27,14 +27,16 @@ class AodApiService:
         return {"type": "FeatureCollection", "features": features}
 
     async def get_aod_polygon_latest(self) -> dict[str, Any]:
-        yesterday = datetime.now(UTC).date() - timedelta(days=1)
-        rows = await self.repository.get_aod_polygons_by_date(yesterday)
-        if not rows:
-            raise HTTPException(
-                status_code=404,
-                detail="Tidak ada data polygon untuk tanggal kemarin.",
-            )
-        return self._to_geojson_fc(list(rows), "aod_value")
+        today = datetime.now(UTC).date()
+        for offset in (1, 2, 3, 4, 5):
+            target = today - timedelta(days=offset)
+            rows = await self.repository.get_aod_polygons_by_date(target)
+            if rows:
+                return self._to_geojson_fc(list(rows), "aod_value")
+        raise HTTPException(
+            status_code=404,
+            detail="Tidak ada data polygon.",
+        )
 
     async def get_aod_polygon_by_date(self, target_date: date) -> dict[str, Any]:
         rows = await self.repository.get_aod_polygons_by_date(target_date)
@@ -46,14 +48,16 @@ class AodApiService:
         return self._to_geojson_fc(list(rows), "aod_value")
 
     async def get_pm25_polygon_latest(self) -> dict[str, Any]:
-        yesterday = datetime.now(UTC).date() - timedelta(days=1)
-        rows = await self.repository.get_pm25_polygons_by_date(yesterday)
-        if not rows:
-            raise HTTPException(
-                status_code=404,
-                detail="Tidak ada data polygon untuk tanggal kemarin.",
-            )
-        return self._to_geojson_fc(list(rows), "pm25_value")
+        today = datetime.now(UTC).date()
+        for offset in (1, 2, 3, 4, 5):
+            target = today - timedelta(days=offset)
+            rows = await self.repository.get_pm25_polygons_by_date(target)
+            if rows:
+                return self._to_geojson_fc(list(rows), "pm25_value")
+        raise HTTPException(
+            status_code=404,
+            detail="Tidak ada data polygon.",
+        )
 
     async def get_pm25_polygon_by_date(self, target_date: date) -> dict[str, Any]:
         rows = await self.repository.get_pm25_polygons_by_date(target_date)

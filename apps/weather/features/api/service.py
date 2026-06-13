@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException
@@ -46,71 +46,62 @@ class WeatherApiService:
 
     async def get_latest_weather(self) -> list[dict[str, Any]]:
         today = datetime.now(UTC).date()
-        rows = await self.repository.get_weather_by_date(today)
-        if not rows:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Tidak ada data cuaca untuk tanggal {today}.",
-            )
-        return [self._weather_row(row) for row in rows]
+        for offset in (0, 1, 2, 3):
+            target = today - timedelta(days=offset)
+            rows = await self.repository.get_weather_by_date(target)
+            if rows:
+                return [self._weather_row(row) for row in rows]
+        raise HTTPException(status_code=404, detail="Tidak ada data cuaca.")
 
     async def get_weather_by_date(self, target_date) -> list[dict[str, Any]]:
         rows = await self.repository.get_weather_by_date(target_date)
         if not rows:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Tidak ada data cuaca untuk tanggal {target_date}.",
-            )
+            raise HTTPException(status_code=404,
+                detail=f"Tidak ada data cuaca untuk tanggal {target_date}.")
         return [self._weather_row(row) for row in rows]
 
     async def get_latest_pm25_actual(self) -> list[dict[str, Any]]:
         today = datetime.now(UTC).date()
-        rows = await self.repository.get_pm25_actual_by_date(today)
-        if not rows:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Tidak ada data PM2.5 untuk tanggal {today}.",
-            )
-        return [self._pm25_actual_row(row) for row in rows]
+        for offset in (0, 1, 2, 3):
+            target = today - timedelta(days=offset)
+            rows = await self.repository.get_pm25_actual_by_date(target)
+            if rows:
+                return [self._pm25_actual_row(row) for row in rows]
+        raise HTTPException(status_code=404, detail="Tidak ada data PM2.5.")
 
     async def get_pm25_actual_by_date(self, target_date) -> list[dict[str, Any]]:
         rows = await self.repository.get_pm25_actual_by_date(target_date)
         if not rows:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Tidak ada data PM2.5 untuk tanggal {target_date}.",
-            )
+            raise HTTPException(status_code=404,
+                detail=f"Tidak ada data PM2.5 untuk tanggal {target_date}.")
         return [self._pm25_actual_row(row) for row in rows]
 
     async def get_latest_pm25_prediction(self) -> list[dict[str, Any]]:
         today = datetime.now(UTC).date()
-        rows = await self.repository.get_pm25_prediction_by_date(today)
-        if not rows:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Tidak ada data PM2.5 prediksi untuk tanggal {today}.",
-            )
-        stations = await self.repository.get_station_map()
-        return [
-            {
-                "id": row.id,
-                "station_id": row.station_id,
-                "station_name": stations.get(row.station_id, "unknown"),
-                "latitude": 0.0,
-                "longitude": 0.0,
-                "date": row.date,
-                "pm25_value": row.pm25_value,
-            }
-            for row in rows
-        ]
+        for offset in (0, 1, 2, 3):
+            target = today - timedelta(days=offset)
+            rows = await self.repository.get_pm25_prediction_by_date(target)
+            if rows:
+                stations = await self.repository.get_station_map()
+                return [
+                    {
+                        "id": row.id,
+                        "station_id": row.station_id,
+                        "station_name": stations.get(row.station_id, "unknown"),
+                        "latitude": 0.0,
+                        "longitude": 0.0,
+                        "date": row.date,
+                        "pm25_value": row.pm25_value,
+                    }
+                    for row in rows
+                ]
+        raise HTTPException(status_code=404, detail="Tidak ada data PM2.5 prediksi.")
 
     async def get_pm25_prediction_by_date(self, target_date) -> list[dict[str, Any]]:
         rows = await self.repository.get_pm25_prediction_by_date(target_date)
         if not rows:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Tidak ada data PM2.5 prediksi untuk tanggal {target_date}.",
-            )
+            raise HTTPException(status_code=404,
+                detail=f"Tidak ada data PM2.5 prediksi untuk tanggal {target_date}.")
         stations = await self.repository.get_station_map()
         return [
             {
