@@ -22,7 +22,7 @@ from apps.weather.models import WeatherData
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parents[5]
+BASE_DIR = Path(__file__).resolve().parents[4]
 _TEMP_DIR = Path(__file__).parent
 
 
