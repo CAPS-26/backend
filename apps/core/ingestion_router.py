@@ -72,3 +72,38 @@ async def trigger_pm25_prediction(request: Request):
 async def trigger_aod_reset(request: Request):
     job = await request.app.state.arq_pool.enqueue_job("task_reset_aod")
     return {"status": "success", "message": "AOD reset from JSON queued", "job_id": job.job_id}
+
+
+@router.post("/aod-reset/direct", summary="Reset & Re-seed AOD dari JSON (Langsung)")
+async def aod_reset_direct():
+    import json as _json
+    from datetime import date as _date, timedelta as _td
+    from apps.database import get_db_session
+    from apps.aod.models import AerosolOpticalDepth
+    from sqlalchemy import select as _select
+
+    async with get_db_session() as db:
+        r = await db.execute(_select(AerosolOpticalDepth).limit(1))
+        existing = r.scalars().first()
+        if not existing:
+            return {"status": "error", "message": "No AOD record found"}
+
+        sat_id = existing.satellite_id
+        today = _date.today()
+        entries = _json.load(open("/app/scripts/seed_aod_full.json"))
+        start = today - _td(days=len(entries) - 1)
+        added = 0
+
+        for i, entry in enumerate(entries):
+            d = start + _td(days=i)
+            if d > today:
+                break
+            r2 = await db.execute(_select(AerosolOpticalDepth).where(AerosolOpticalDepth.date == d))
+            row = r2.scalars().first()
+            if row:
+                row.data = entry["data"]
+            else:
+                db.add(AerosolOpticalDepth(satellite_id=sat_id, date=d, data=entry["data"]))
+            added += 1
+        await db.commit()
+        return {"status": "success", "message": f"Seeded {added} AOD dates", "dates": f"{start} to {today}"}
