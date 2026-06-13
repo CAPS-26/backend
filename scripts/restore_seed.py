@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import text
 from apps.database import get_db_session
+from config.settings import settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("restore")
@@ -29,21 +30,25 @@ async def main():
             log.info("Database already has %d weather records, skipping restore.", count)
             return
 
-    log.info("Empty database detected. Restoring from %s...", SEED_FILE.name)
-    async with get_db_session() as db:
+    log.info("Empty database detected. Restoring from %s (%.0fKB)...",
+             SEED_FILE.name, SEED_FILE.stat().st_size / 1024)
+
+    # Use asyncpg directly to handle pg_dump COPY statements properly
+    import asyncpg
+    conn = await asyncpg.connect(
+        host=settings.dbhost, port=int(settings.dbport),
+        user=settings.userdb, password=settings.passdb,
+        database=settings.namedb,
+    )
+    try:
         with gzip.open(SEED_FILE, "rt") as f:
-            sql = f.read()
-        statements = [s.strip() for s in sql.split(";") if s.strip() and not s.strip().startswith("--")]
-        for stmt in statements:
-            try:
-                await db.execute(text(stmt))
-            except Exception:
-                pass
-        await db.commit()
+            await conn.execute(f.read())
+    finally:
+        await conn.close()
 
     async with get_db_session() as db:
         r = await db.execute(text("SELECT count(*) FROM weather_data"))
-        log.info("Restore complete. weather_data now has %d records.", r.scalar())
+        log.info("Restore complete. weather_data: %d records.", r.scalar())
 
 
 if __name__ == "__main__":
