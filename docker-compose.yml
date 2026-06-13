@@ -97,9 +97,6 @@ services:
       start_period: 10s
     networks:
       - backend_net
-      start_period: 15s
-    networks:
-      - backend_net
 
   arq_worker:
     build:
