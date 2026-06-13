@@ -5,19 +5,19 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_DB: ${NAMEDB:-aodproject}
-      POSTGRES_USER: ${USERDB:-aoduser}
+      POSTGRES_DB: ${NAMEDB}
+      POSTGRES_USER: ${USERDB}
       POSTGRES_PASS: ${PASSDB}
       ALLOW_IP_RANGE: 0.0.0.0/0
     volumes:
       - ./deploy/postgres_data:/var/lib/postgresql/data
       - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${USERDB:-aoduser} -d ${NAMEDB:-aodproject}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${USERDB} -d ${NAMEDB}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s
     networks:
       - backend_net
 
@@ -86,30 +86,15 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command:
-      - redis-server
-      - --appendonly
-      - "yes"
-      - --maxmemory
-      - 300mb
-      - --maxmemory-policy
-      - allkeys-lru
-      - --loglevel
-      - warning
-    volumes:
-      - ./deploy/redis_data:/data
+    command: redis-server --save "" --maxmemory 128mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 15s
     networks:
       - backend_net
-    deploy:
-      resources:
-        limits:
-          memory: 384M
 
   arq_worker:
     build:
