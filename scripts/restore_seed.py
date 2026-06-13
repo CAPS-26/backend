@@ -53,13 +53,16 @@ async def fill_aod_gap():
         return
 
     async with get_db_session() as db:
-        r = await db.execute(select(func.count()).select_from(AerosolOpticalDepth))
-        count = r.scalar()
-        if count >= 10:
-            log.info("AOD has %d records, no gap to fill.", count)
+        r = await db.execute(
+            select(func.count(func.distinct(AerosolOpticalDepth.date)))
+            .select_from(AerosolOpticalDepth)
+        )
+        distinct_dates = r.scalar()
+        if distinct_dates >= 10:
+            log.info("AOD has %d distinct dates, no gap to fill.", distinct_dates)
             return
 
-    log.info("AOD gap detected (%d records). Seeding from JSON...", count)
+    log.info("AOD gap detected (only %d distinct dates). Seeding from JSON...", distinct_dates)
     with open(AOD_JSON) as f:
         entries = json.load(f)
 
