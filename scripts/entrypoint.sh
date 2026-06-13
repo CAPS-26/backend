@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# Ensure data directories exist (needed for JAXA FTP downloads)
+mkdir -p /app/data/Himawari /app/data/VIIRS /app/media
+
 if [ "$RUN_MIGRATIONS" = "true" ]; then
     echo "Running Database Migrations..."
     alembic upgrade head || exit 1
