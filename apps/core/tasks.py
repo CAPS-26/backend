@@ -14,7 +14,7 @@ async def task_reset_aod(ctx: dict[str, Any]) -> None:
     logger.info("Starting AOD reset from JSON (job %s)...", ctx.get("job_id"))
     import sys
     from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from scripts.reset_aod import main as reset_aod_main
     await reset_aod_main()
 
