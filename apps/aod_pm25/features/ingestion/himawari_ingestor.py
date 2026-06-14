@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from ftplib import FTP
 from pathlib import Path
 
-from apps.aod.features.ingestion.processor import process_himawari_data
+from apps.aod_pm25.features.ingestion.processor import process_himawari_data
 
 logger = logging.getLogger(__name__)
 

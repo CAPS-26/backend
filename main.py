@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from scalar_fastapi import Layout, SearchHotKey, get_scalar_api_reference
 
-from apps.aod.features.api.router import router as aod_router
+from apps.aod_pm25.features.api.router import router as aod_router
 from apps.core.arq_app import _build_redis
 from apps.core.cache import init_cache
 from apps.core.ingestion_router import router as ingestion_router

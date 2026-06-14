@@ -1,7 +1,7 @@
 from arq.jobs import Job
 from fastapi import APIRouter, HTTPException, Request
 
-from apps.aod.features.api.schemas import JobStatusOut
+from apps.aod_pm25.features.api.schemas import JobStatusOut
 
 router = APIRouter(prefix="/ingestion", tags=["Ingestion"])
 
@@ -79,7 +79,7 @@ async def aod_reset_direct():
     import json as _json
     from datetime import date as _date, timedelta as _td
     from apps.database import get_db_session
-    from apps.aod.models import AerosolOpticalDepth
+    from apps.aod_pm25.models import AerosolOpticalDepth
     from sqlalchemy import select as _select
 
     async with get_db_session() as db:
@@ -112,7 +112,7 @@ async def aod_reset_direct():
 @router.post("/aod-polygon/generate", summary="Generate AOD polygons from grid data (Langsung)")
 async def aod_polygon_generate():
     from apps.database import get_db_session
-    from apps.aod.models import AerosolOpticalDepth, AerosolOpticalDepthPolygon
+    from apps.aod_pm25.models import AerosolOpticalDepth, AerosolOpticalDepthPolygon
     from sqlalchemy import select as _select, delete as _delete
 
     RES = 0.005

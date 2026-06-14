@@ -4,7 +4,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.aod.models import (
+from apps.aod_pm25.models import (
     AerosolOpticalDepth,
     AerosolOpticalDepthPolygon,
     PM25DataEstimate,

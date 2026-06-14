@@ -12,8 +12,8 @@ from sklearn.preprocessing import MinMaxScaler
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.aod.features.prediction.loader import load_model_from_file
-from apps.aod.models import AerosolOpticalDepth
+from apps.aod_pm25.features.prediction.loader import load_model_from_file
+from apps.aod_pm25.models import AerosolOpticalDepth
 from apps.database import get_db_session
 from apps.weather.models import (
     PM25DataActual,

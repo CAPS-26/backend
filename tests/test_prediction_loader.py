@@ -1,6 +1,6 @@
 import pytest
 
-from apps.aod.features.prediction.loader import load_model_from_file
+from apps.aod_pm25.features.prediction.loader import load_model_from_file
 
 
 @pytest.mark.asyncio

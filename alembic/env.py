@@ -19,7 +19,7 @@ if config.config_file_name is not None:
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Import semua model agar Base.metadata terisi
-import apps.aod.models  # noqa: E402
+import apps.aod_pm25.models  # noqa: E402
 import apps.weather.models  # noqa: F401, E402
 from apps.database import Base  # noqa: E402
 

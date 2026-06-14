@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from geoalchemy2.shape import to_shape
 from shapely.geometry import mapping
 
-from apps.aod.repositories import AodRepository
+from apps.aod_pm25.repositories import AodRepository
 
 
 class AodApiService:

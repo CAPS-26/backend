@@ -14,9 +14,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from apps.aod.features.estimation.predictor import predict_model
-from apps.aod.features.estimation.raster_converter import csvToPolygon
-from apps.aod.models import AerosolOpticalDepth, PM25DataEstimate, PolygonDataPM25
+from apps.aod_pm25.features.estimation.predictor import predict_model
+from apps.aod_pm25.features.estimation.raster_converter import csvToPolygon
+from apps.aod_pm25.models import AerosolOpticalDepth, PM25DataEstimate, PolygonDataPM25
 from apps.database import get_db_session
 from apps.weather.models import WeatherData
 

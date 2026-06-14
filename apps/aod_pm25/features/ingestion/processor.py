@@ -12,7 +12,7 @@ import xarray as xr
 from shapely.geometry import box
 from sqlalchemy import select
 
-from apps.aod.models import AerosolOpticalDepth, AerosolOpticalDepthPolygon, Satellite
+from apps.aod_pm25.models import AerosolOpticalDepth, AerosolOpticalDepthPolygon, Satellite
 from apps.database import get_db_session
 
 # Root proyek (5 level ke atas: ingestion→features→aod→apps→root)

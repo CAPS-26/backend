@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.aod.features.api.schemas import DateInput
-from apps.aod.features.api.service import AodApiService
-from apps.aod.repositories import AodRepository
+from apps.aod_pm25.features.api.schemas import DateInput
+from apps.aod_pm25.features.api.service import AodApiService
+from apps.aod_pm25.repositories import AodRepository
 from apps.database import get_db
 
 router = APIRouter()

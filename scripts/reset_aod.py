@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import select, delete
 from apps.database import get_db_session
-from apps.aod.models import AerosolOpticalDepth
+from apps.aod_pm25.models import AerosolOpticalDepth
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("reset_aod")

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from geoalchemy2.shape import to_shape
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
-from apps.aod.models import AerosolOpticalDepth
+from apps.aod_pm25.models import AerosolOpticalDepth
 from apps.database import get_db_session
 from apps.weather.models import WeatherData
 

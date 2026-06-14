@@ -3,9 +3,9 @@ from typing import Any
 
 from sqlalchemy import select
 
-from apps.aod.features.estimation.service import estimatePm25
-from apps.aod.features.ingestion.himawari_ingestor import getDataHimawari
-from apps.aod.features.prediction.service import predict_pm25_for_all_stations
+from apps.aod_pm25.features.estimation.service import estimatePm25
+from apps.aod_pm25.features.ingestion.himawari_ingestor import getDataHimawari
+from apps.aod_pm25.features.prediction.service import predict_pm25_for_all_stations
 from apps.weather.features.ingestion.pm25_crawler import get_ispu_pm25_now
 from apps.weather.features.ingestion.weather_fetcher import fetch_weather_data
 
@@ -18,7 +18,7 @@ async def task_reset_aod(ctx: dict[str, Any]) -> None:
     from datetime import date, timedelta
     from pathlib import Path
     from apps.database import get_db_session
-    from apps.aod.models import AerosolOpticalDepth
+    from apps.aod_pm25.models import AerosolOpticalDepth
 
     json_path = Path("/app/scripts/seed_aod_full.json")
     if not json_path.exists():

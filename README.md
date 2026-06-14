@@ -8,7 +8,7 @@ REST API backend untuk pemrosesan data satelit Aerosol Optical Depth (AOD) dan e
 backend/
 ├── config/                   # Pengaturan aplikasi (settings.py)
 ├── apps/
-│   ├── aod/                 # Domain satelit AOD
+│   ├── aod_pm25/            # Domain satelit AOD & Estimasi PM2.5
 │   │   ├── models.py
 │   │   └── features/
 │   │       ├── ingestion/   # Fetch & proses file satelit .nc (Himawari, VIIRS)
@@ -159,7 +159,7 @@ Catatan operasional singkat:
 
 - Scheduler dijalankan di level aplikasi. Job dijalankan oleh APScheduler yang dibuat pada startup aplikasi.
 - Caching mendukung Redis bila dikonfigurasi, dan akan fallback ke in-memory cache bila koneksi Redis gagal.
-- Prediksi time-series menggunakan model LSTM; proyek sudah menyediakan kerangka untuk model TensorFlow (.keras). Anda dapat menaruh model file di `apps/aod/features/prediction/ml_models/` dan loader akan mencoba memuatnya. Saya juga menambahkan dukungan loader untuk model PyTorch (.pt, .pth).
+- Prediksi time-series menggunakan model LSTM; proyek sudah menyediakan kerangka untuk model TensorFlow (.keras). Anda dapat menaruh model file di `apps/aod_pm25/features/prediction/ml_models/` dan loader akan mencoba memuatnya. Saya juga menambahkan dukungan loader untuk model PyTorch (.pt, .pth).
 
 ---
 

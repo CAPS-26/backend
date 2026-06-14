@@ -6,7 +6,7 @@ from pathlib import Path
 
 import earthaccess
 
-from apps.aod.features.ingestion.processor import process_viirs_files
+from apps.aod_pm25.features.ingestion.processor import process_viirs_files
 
 _BASE_DIR = Path(__file__).resolve().parents[4]
 _DOWNLOAD_PATH = _BASE_DIR / "data" / "VIIRS"
