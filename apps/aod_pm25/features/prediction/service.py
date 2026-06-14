@@ -167,38 +167,50 @@ async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
             continue
 
         # Jalankan prediksi di thread jika model.predict bersifat blocking
-        try:
-            y_pred = await asyncio.to_thread(model.predict, x_manual)
-            y_pred_norm = float(y_pred[0][0])
-        except Exception as e:
-            logger.exception(
-                "Prediction failed for station %s", station.name, exc_info=e
-            )
-            continue
-        dummy = np.zeros((1, len(FEATURE_COLUMNS)))
-        dummy[0, -1] = y_pred_norm
-        y_pred_real = scaler.inverse_transform(dummy)[0, -1]
-
-        logger.info("PM2.5 prediction for %s: %.2f", station.name, y_pred_real)
-
         last_date = df["tanggal"].max()
-        prediction_date = last_date + timedelta(days=1)
+        current_df = df[FEATURE_COLUMNS].copy()
 
-        result = await db.execute(
-            select(PM25DataPrediction).filter(
-                PM25DataPrediction.station_id == station.id,
-                PM25DataPrediction.date == prediction_date,
-            )
-        )
-        existing = result.scalars().first()
-        if existing:
-            existing.pm25_value = float(y_pred_real)
-        else:
-            db.add(
-                PM25DataPrediction(
-                    station_id=station.id,
-                    date=prediction_date,
-                    pm25_value=float(y_pred_real),
+        for step in range(1, 4):  # Prediksi 3 hari ke depan secara rekursif
+            sequence_raw = current_df.iloc[-SEQUENCE_LENGTH:].values
+            sequence_scaled = scaler.transform(sequence_raw)
+            x_manual = sequence_scaled[np.newaxis, ...]
+
+            try:
+                y_pred = await asyncio.to_thread(model.predict, x_manual)
+                y_pred_norm = float(y_pred[0][0])
+            except Exception as e:
+                logger.exception(
+                    "Prediction failed for station %s at step %d", station.name, step, exc_info=e
+                )
+                break
+
+            dummy = np.zeros((1, len(FEATURE_COLUMNS)))
+            dummy[0, -1] = y_pred_norm
+            y_pred_real = float(scaler.inverse_transform(dummy)[0, -1])
+
+            prediction_date = last_date + timedelta(days=step)
+            logger.info("PM2.5 prediction for %s step %d (%s): %.2f", station.name, step, prediction_date, y_pred_real)
+
+            result = await db.execute(
+                select(PM25DataPrediction).filter(
+                    PM25DataPrediction.station_id == station.id,
+                    PM25DataPrediction.date == prediction_date,
                 )
             )
+            existing = result.scalars().first()
+            if existing:
+                existing.pm25_value = y_pred_real
+            else:
+                db.add(
+                    PM25DataPrediction(
+                        station_id=station.id,
+                        date=prediction_date,
+                        pm25_value=y_pred_real,
+                    )
+                )
+
+            # Siapkan row data baru untuk step berikutnya
+            next_row = current_df.iloc[-1].copy()
+            next_row["ISPU PM2.5"] = y_pred_real
+            current_df = pd.concat([current_df, pd.DataFrame([next_row])], ignore_index=True)
         await db.commit()
