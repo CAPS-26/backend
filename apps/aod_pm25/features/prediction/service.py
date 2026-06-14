@@ -133,6 +133,7 @@ async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
         for col in FEATURE_COLUMNS:
             df[col] = pd.to_numeric(df[col], errors="coerce")
             df[col] = df[col].interpolate(method="linear")
+        df = df.ffill().bfill()
         df = df.dropna()
 
         if len(df) < SEQUENCE_LENGTH:
