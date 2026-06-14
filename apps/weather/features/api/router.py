@@ -114,3 +114,25 @@ async def get_pm25_prediction_by_date(
 ) -> list[PM25PredictionOut]:
     target_date = _parse_date(body.date)
     return await service.get_pm25_prediction_by_date(target_date)
+
+
+@router.get(
+    "/pm25/actual/history/",
+    summary="Ambil Riwayat Data PM2.5 Aktual",
+)
+@cache(expire=3600)
+async def get_pm25_actual_history(
+    service: WeatherApiService = Depends(_get_service),
+) -> list[PM25ActualOut]:
+    return await service.get_pm25_actual_history()
+
+
+@router.get(
+    "/pm25/prediction/history/",
+    summary="Ambil Riwayat Data PM2.5 Prediksi",
+)
+@cache(expire=3600)
+async def get_pm25_prediction_history(
+    service: WeatherApiService = Depends(_get_service),
+) -> list[PM25PredictionOut]:
+    return await service.get_pm25_prediction_history()

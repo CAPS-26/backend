@@ -115,3 +115,23 @@ class WeatherApiService:
             }
             for row in rows
         ]
+
+    async def get_pm25_actual_history(self) -> list[dict[str, Any]]:
+        rows = await self.repository.get_pm25_actual_history()
+        return [self._pm25_actual_row(row) for row in rows]
+
+    async def get_pm25_prediction_history(self) -> list[dict[str, Any]]:
+        rows = await self.repository.get_pm25_prediction_history()
+        stations = await self.repository.get_station_map()
+        return [
+            {
+                "id": row.id,
+                "station_id": row.station_id,
+                "station_name": stations.get(row.station_id, "unknown"),
+                "latitude": 0.0,
+                "longitude": 0.0,
+                "date": row.date,
+                "pm25_value": row.pm25_value,
+            }
+            for row in rows
+        ]

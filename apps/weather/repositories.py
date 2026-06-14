@@ -77,6 +77,21 @@ class WeatherRepository:
         )
         return result.scalars().all()
 
+    async def get_pm25_actual_history(self) -> Sequence[PM25DataActual]:
+        result = await self.db.execute(
+            select(PM25DataActual)
+            .options(joinedload(PM25DataActual.station))
+            .order_by(PM25DataActual.date.desc())
+        )
+        return result.scalars().all()
+
+    async def get_pm25_prediction_history(self) -> Sequence[PM25DataPrediction]:
+        result = await self.db.execute(
+            select(PM25DataPrediction)
+            .order_by(PM25DataPrediction.date.desc())
+        )
+        return result.scalars().all()
+
     async def save_pm25_prediction(self, record: PM25DataPrediction):
         self.db.add(record)
         await self.db.commit()
