@@ -58,8 +58,7 @@ async def predict_pm25_for_all_stations():
 
 async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
     end_date = datetime.now(tz=UTC).date()
-    yesterday = end_date - timedelta(days=1)
-    start_date = yesterday - timedelta(days=SEQUENCE_LENGTH)
+    start_date = end_date - timedelta(days=SEQUENCE_LENGTH + 5)
 
     result = await db.execute(select(WeatherStation))
     stations = result.scalars().all()
@@ -71,14 +70,14 @@ async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
 
         result = await db.execute(
             select(AerosolOpticalDepth)
-            .filter(AerosolOpticalDepth.date.between(start_date, yesterday))
+            .filter(AerosolOpticalDepth.date.between(start_date, end_date))
             .order_by(AerosolOpticalDepth.date)
         )
         aod_all = result.scalars().all()
 
         result = await db.execute(
             select(WeatherData).filter(
-                WeatherData.date.between(start_date, yesterday),
+                WeatherData.date.between(start_date, end_date),
                 WeatherData.station_id == station.id,
             )
         )
@@ -86,7 +85,7 @@ async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
 
         result = await db.execute(
             select(PM25DataActual).filter(
-                PM25DataActual.date.between(start_date, yesterday),
+                PM25DataActual.date.between(start_date, end_date),
                 PM25DataActual.station_id == station.id,
             )
         )
@@ -181,10 +180,13 @@ async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
 
         logger.info("PM2.5 prediction for %s: %.2f", station.name, y_pred_real)
 
+        last_date = df["tanggal"].max()
+        prediction_date = last_date + timedelta(days=1)
+
         result = await db.execute(
             select(PM25DataPrediction).filter(
                 PM25DataPrediction.station_id == station.id,
-                PM25DataPrediction.date == yesterday,
+                PM25DataPrediction.date == prediction_date,
             )
         )
         existing = result.scalars().first()
@@ -194,7 +196,7 @@ async def _run_prediction(db: AsyncSession):  # noqa: PLR0915
             db.add(
                 PM25DataPrediction(
                     station_id=station.id,
-                    date=yesterday,
+                    date=prediction_date,
                     pm25_value=float(y_pred_real),
                 )
             )
